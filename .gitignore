@@ -1,0 +1,45 @@
+# General
+.DS_Store
+*.log
+*.swp
+*.swo
+*.bak
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.sqlite3
+*.pid
+*.egg-info/
+*.egg
+.ipynb_checkpoints
+.pytest_cache/
+.venv/
+.env/
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Python specific
+venv/
+ENV/
+env/
+*.venv/
+bin/
+include/
+lib/
+lib64/
+pyvenv.cfg
+pip-selfcheck.json
+.Python
+
+
+
+
+
+# Django
+staticfiles/
+media/
+*.mo
+
