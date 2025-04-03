@@ -44,3 +44,4 @@ staticfiles/
 media/
 *.mo
 
+.qodo
