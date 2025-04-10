@@ -45,3 +45,4 @@ media/
 *.mo
 
 .qodo
+node_modules
