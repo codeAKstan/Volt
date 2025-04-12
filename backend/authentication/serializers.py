@@ -81,3 +81,24 @@ class LoginSerializer(serializers.Serializer):
             }
         else:
             raise serializers.ValidationError({'error': 'Must include "email" and "password"'})
+
+# Add UserSerializer for the profile endpoint
+class UserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+    phoneNumber = serializers.CharField(source='phone_number', required=False, allow_blank=True, allow_null=True)
+    jobTitle = serializers.CharField(source='job_title', required=False, allow_blank=True, allow_null=True)
+    profileImage = serializers.ImageField(source='profile_image', required=False, allow_null=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'firstName', 'lastName', 
+            'name', 'role', 'phone_number', 'phoneNumber', 'organization',
+            'job_title', 'jobTitle', 'department', 'profile_image', 'profileImage'
+        ]
+        read_only_fields = ['id', 'email', 'role']
+    
+    def get_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"

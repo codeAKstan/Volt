@@ -21,18 +21,20 @@ import { Loader2, Bell, Calendar, Clock, Upload, User, Settings, History } from 
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { user, logout, updateProfile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [bookingHistory, setBookingHistory] = useState([])
+  
+  // Initialize form data with user info or empty strings
   const [profileData, setProfileData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    jobTitle: "",
-    department: "",
-    phoneNumber: "",
-    profileImage: null,
+    firstName: user?.firstName || user?.first_name || "",
+    lastName: user?.lastName || user?.last_name || "",
+    email: user?.email || "",
+    jobTitle: user?.jobTitle || "",
+    department: user?.department || "",
+    phoneNumber: user?.phoneNumber || user?.phone_number || "",
+    profileImage: user?.profileImage || null,
   })
 
   const [preferences, setPreferences] = useState({
@@ -58,6 +60,12 @@ export default function ProfilePage() {
     smsNotifications: false,
   })
 
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return "U"
+    return `${profileData.firstName.charAt(0)}${profileData.lastName.charAt(0)}`.toUpperCase()
+  }
+
   // Load user data
   useEffect(() => {
     const fetchUserData = async () => {
@@ -70,20 +78,22 @@ export default function ProfilePage() {
 
         // Set profile data
         setProfileData({
-          firstName: userData.firstName || "",
-          lastName: userData.lastName || "",
+          firstName: userData.firstName || userData.first_name || "",
+          lastName: userData.lastName || userData.last_name || "",
           email: userData.email || "",
           jobTitle: userData.jobTitle || "",
           department: userData.department || "",
-          phoneNumber: userData.phoneNumber || "",
+          phoneNumber: userData.phoneNumber || userData.phone_number || "",
           profileImage: userData.profileImage || null,
         })
 
         // Set preferences (in a real app, these would come from the backend)
-        setPreferences({
-          ...preferences,
-          darkMode: document.documentElement.classList.contains("dark"),
-        })
+        if (userData.preferences) {
+          setPreferences({
+            ...userData.preferences,
+            darkMode: document.documentElement.classList.contains("dark"),
+          })
+        }
 
         // Fetch booking history
         const bookings = await bookingApi.getByUser(user.id)
@@ -128,8 +138,8 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSaving(true)
     try {
-      // Update user profile
-      await userApi.update(user.id, {
+      // Update user profile using the auth context's updateProfile function
+      await updateProfile({
         firstName: profileData.firstName,
         lastName: profileData.lastName,
         jobTitle: profileData.jobTitle,
@@ -139,6 +149,8 @@ export default function ProfilePage() {
       })
 
       // In a real app, you would also save preferences and notification settings
+      // await userApi.updatePreferences(user.id, preferences)
+      // await userApi.updateNotificationSettings(user.id, notifications)
 
       toast.success("Profile updated successfully")
     } catch (error) {
@@ -201,8 +213,7 @@ export default function ProfilePage() {
                         <AvatarImage src={profileData.profileImage} alt={profileData.firstName} />
                       ) : (
                         <AvatarFallback className="text-2xl">
-                          {profileData.firstName?.[0] || ""}
-                          {profileData.lastName?.[0] || ""}
+                          {getUserInitials()}
                         </AvatarFallback>
                       )}
                     </Avatar>

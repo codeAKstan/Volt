@@ -16,7 +16,7 @@ import { bookingApi, workspaceApi } from "@/lib/api"
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [greeting, setGreeting] = useState("")
   const [loading, setLoading] = useState(true)
   const [bookings, setBookings] = useState([])
@@ -42,7 +42,7 @@ export default function DashboardPage() {
       try {
         // Fetch bookings
         let bookingsData = []
-        if (user?.role === "admin") {
+        if (user?.role === "ADMIN") {
           bookingsData = await bookingApi.getAll()
         } else {
           bookingsData = await bookingApi.getByUser(user.id)
@@ -110,7 +110,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -123,9 +123,12 @@ export default function DashboardPage() {
       <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
-            {greeting}, {user?.firstName || "User"}!
+            {greeting}, {user?.first_name || user?.firstName || "User"}!
           </h2>
-          <p className="text-muted-foreground">Here's what's happening with your workspace today.</p>
+          <p className="text-muted-foreground">
+            Here's what's happening with your workspace today.
+            {/* {user?.role && <span className="ml-1 font-medium">({user.role})</span>} */}
+          </p>
         </div>
         <div className="flex items-center space-x-2">
           <Button onClick={() => router.push("/dashboard/workspaces")}>
