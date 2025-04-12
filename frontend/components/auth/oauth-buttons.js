@@ -4,17 +4,37 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth"
 
 export function OAuthButtons({ onSuccess }) {
+  const { login } = useAuth()
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [isAppleLoading, setIsAppleLoading] = useState(false)
   const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false)
 
+  // Note: These OAuth methods would need to be implemented on your Django backend
+  // For now, we'll keep the mock implementation but with a note that this is where
+  // you would integrate with your backend OAuth endpoints
+
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true)
     try {
-      // Simulate OAuth login
+      // This would call your backend OAuth endpoint
+      // For now, we'll simulate a successful login
       await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Mock user data - in a real implementation, this would come from your backend
+      const mockUser = {
+        id: "user_123",
+        email: "user@example.com",
+        firstName: "John",
+        lastName: "Doe",
+        role: "EMPLOYEE",
+      }
+
+      // Store the user data
+      localStorage.setItem("volt_user", JSON.stringify(mockUser))
+
       toast.success("Successfully signed in with Google")
       if (onSuccess) onSuccess()
     } catch (error) {
@@ -28,8 +48,22 @@ export function OAuthButtons({ onSuccess }) {
   const handleAppleLogin = async () => {
     setIsAppleLoading(true)
     try {
-      // Simulate OAuth login
+      // This would call your backend OAuth endpoint
+      // For now, we'll simulate a successful login
       await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Mock user data - in a real implementation, this would come from your backend
+      const mockUser = {
+        id: "user_456",
+        email: "apple_user@example.com",
+        firstName: "Jane",
+        lastName: "Smith",
+        role: "EMPLOYEE",
+      }
+
+      // Store the user data
+      localStorage.setItem("volt_user", JSON.stringify(mockUser))
+
       toast.success("Successfully signed in with Apple")
       if (onSuccess) onSuccess()
     } catch (error) {
@@ -43,8 +77,22 @@ export function OAuthButtons({ onSuccess }) {
   const handleMicrosoftLogin = async () => {
     setIsMicrosoftLoading(true)
     try {
-      // Simulate OAuth login
+      // This would call your backend OAuth endpoint
+      // For now, we'll simulate a successful login
       await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Mock user data - in a real implementation, this would come from your backend
+      const mockUser = {
+        id: "user_789",
+        email: "ms_user@example.com",
+        firstName: "Alex",
+        lastName: "Johnson",
+        role: "EMPLOYEE",
+      }
+
+      // Store the user data
+      localStorage.setItem("volt_user", JSON.stringify(mockUser))
+
       toast.success("Successfully signed in with Microsoft")
       if (onSuccess) onSuccess()
     } catch (error) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { DashboardHeader } from "@/components/dashboard/header"
@@ -8,19 +8,23 @@ import { DashboardSidebar, DashboardSidebarWrapper } from "@/components/dashboar
 import { useAuth, AuthProvider } from "@/lib/auth"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { LoadingAnimation } from "@/components/ui/loading-animation"
+import { toast } from "sonner"
 
 function DashboardLayoutContent({ children }) {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
+      setIsRedirecting(true)
+      toast.error("Please log in to access the dashboard")
       router.push("/login")
     }
   }, [user, loading, router])
 
-  if (loading) {
+  if (loading || isRedirecting) {
     return (
       <div className="flex h-screen items-center justify-center">
         <LoadingAnimation />
