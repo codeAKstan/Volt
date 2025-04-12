@@ -29,7 +29,7 @@ class SignupSerializer(serializers.ModelSerializer):
         fields = [
             'first_name', 'last_name', 'email',
             'password', 'password2', 'role',
-            'phone_number', 'organization'
+            'phone_number'
         ]
         extra_kwargs = {
             'first_name': {'required': True},
