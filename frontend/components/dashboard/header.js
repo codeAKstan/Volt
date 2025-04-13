@@ -70,6 +70,16 @@ export function DashboardHeader() {
     return path.charAt(0).toUpperCase() + path.slice(1)
   }
 
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return "U"
+
+    const firstName = user.first_name || user.firstName || ""
+    const lastName = user.last_name || user.lastName || ""
+
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex flex-1 items-center justify-between px-4">
@@ -186,11 +196,8 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder.svg" alt={user?.firstName} />
-                  <AvatarFallback>
-                    {user?.firstName?.[0] || "U"}
-                    {user?.lastName?.[0] || ""}
-                  </AvatarFallback>
+                  <AvatarImage src="/placeholder.svg" alt={user?.first_name || user?.firstName} />
+                  <AvatarFallback>{getUserInitials()}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -198,9 +205,14 @@ export function DashboardHeader() {
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">
-                    {user?.firstName} {user?.lastName}
+                    {user?.first_name || user?.firstName} {user?.last_name || user?.lastName}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                  {user?.role && (
+                    <p className="mt-1 text-xs font-medium text-primary">
+                      {typeof user.role === "string" ? user.role.toUpperCase() : user.role}
+                    </p>
+                  )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

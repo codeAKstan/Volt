@@ -25,12 +25,17 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     phoneNumber: "",
-    role: "employee",
+    role: "EMPLOYEE",
   })
+  const [errors, setErrors] = useState({})
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    // Clear error when user types
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: null }))
+    }
   }
 
   const handleRoleChange = (value) => {
@@ -39,22 +44,41 @@ export default function SignupPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setErrors({})
 
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match")
+      setErrors({ confirmPassword: "Passwords do not match" })
       return
     }
 
     setIsLoading(true)
 
     try {
-      // Actually use the signup function from auth context
-      await signup(formData)
+      // Map frontend form data to backend expected format
+      const userData = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        password2: formData.confirmPassword,
+        phone_number: formData.phoneNumber,
+        role: formData.role,
+      }
+
+      // Use the signup function from auth context
+      await signup(userData)
       toast.success("Account created successfully!")
       router.push("/dashboard")
     } catch (error) {
       console.error("Signup error:", error)
-      toast.error("Failed to create account. Please try again.")
+
+      // Handle validation errors
+      if (error.response && error.response.data) {
+        setErrors(error.response.data)
+      } else {
+        toast.error("Failed to create account. Please try again.")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -108,6 +132,12 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {errors.general && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+                {errors.general}
+              </div>
+            )}
+
             <motion.div
               className="grid grid-cols-2 gap-4"
               initial={{ opacity: 0, y: 10 }}
@@ -126,8 +156,11 @@ export default function SignupPage() {
                   value={formData.firstName}
                   onChange={handleChange}
                   required
-                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                    errors.first_name ? "border-destructive" : ""
+                  }`}
                 />
+                {errors.first_name && <p className="text-destructive text-sm mt-1">{errors.first_name}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last name</Label>
@@ -138,8 +171,11 @@ export default function SignupPage() {
                   value={formData.lastName}
                   onChange={handleChange}
                   required
-                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                    errors.last_name ? "border-destructive" : ""
+                  }`}
                 />
+                {errors.last_name && <p className="text-destructive text-sm mt-1">{errors.last_name}</p>}
               </div>
             </motion.div>
 
@@ -161,8 +197,11 @@ export default function SignupPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                  errors.email ? "border-destructive" : ""
+                }`}
               />
+              {errors.email && <p className="text-destructive text-sm mt-1">{errors.email}</p>}
             </motion.div>
 
             <motion.div
@@ -182,8 +221,11 @@ export default function SignupPage() {
                 placeholder="+1 (555) 123-4567"
                 value={formData.phoneNumber}
                 onChange={handleChange}
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                  errors.phone_number ? "border-destructive" : ""
+                }`}
               />
+              {errors.phone_number && <p className="text-destructive text-sm mt-1">{errors.phone_number}</p>}
             </motion.div>
 
             <motion.div
@@ -197,15 +239,20 @@ export default function SignupPage() {
                 Role
               </Label>
               <Select value={formData.role} onValueChange={handleRoleChange}>
-                <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-primary/20">
+                <SelectTrigger
+                  className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                    errors.role ? "border-destructive" : ""
+                  }`}
+                >
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="learner">Learner</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                  <SelectItem value="LEARNER">Learner</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.role && <p className="text-destructive text-sm mt-1">{errors.role}</p>}
             </motion.div>
 
             <motion.div
@@ -226,8 +273,11 @@ export default function SignupPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                  errors.password ? "border-destructive" : ""
+                }`}
               />
+              {errors.password && <p className="text-destructive text-sm mt-1">{errors.password}</p>}
             </motion.div>
 
             <motion.div
@@ -245,8 +295,13 @@ export default function SignupPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                  errors.confirmPassword || errors.password2 ? "border-destructive" : ""
+                }`}
               />
+              {(errors.confirmPassword || errors.password2) && (
+                <p className="text-destructive text-sm mt-1">{errors.confirmPassword || errors.password2}</p>
+              )}
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>

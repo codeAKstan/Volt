@@ -118,3 +118,10 @@ class Booking(models.Model):
             self.meeting_room.save()
             # Mark meeting rooms as unavailable if needed (optional)
             
+
+class WorkspaceFeature(models.Model):
+    name = models.CharField(max_length=100)
+    workspace = models.ForeignKey(WorkSpace, on_delete=models.CASCADE, related_name='features')
+    
+    def __str__(self):
+        return f"{self.name} - {self.workspace.name}"

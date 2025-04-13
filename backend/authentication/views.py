@@ -1,10 +1,12 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from .serializers import SignupSerializer, LoginSerializer
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from .serializers import SignupSerializer, LoginSerializer, UserSerializer
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework.views import APIView
 
 
 User = get_user_model()
@@ -67,10 +69,56 @@ class LoginView(generics.GenericAPIView):
                 'id': user.id,
                 'email': user.email,
                 'role': user.role,
-                'name': f"{user.first_name} {user.last_name}"
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'name': f"{user.first_name} {user.last_name}",
+                'phone_number': user.phone_number,
+                'job_title': user.job_title,
+                'department': user.department,
+                'profile_image': request.build_absolute_uri(user.profile_image.url) if user.profile_image else None
             },
             'tokens': {
                 'refresh': serializer.validated_data['refresh'],
                 'access': serializer.validated_data['access']
             }
         }, status=status.HTTP_200_OK)
+
+# Add UserProfileView for getting and updating the current user
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    
+    def get(self, request):
+        """Get the current user's profile"""
+        serializer = UserSerializer(request.user)
+        data = serializer.data
+        
+        # Add absolute URL for profile image if it exists
+        if request.user.profile_image:
+            data['profileImage'] = request.build_absolute_uri(request.user.profile_image.url)
+        
+        return Response(data)
+    
+    def patch(self, request):
+        """Update the current user's profile"""
+        # Print request data for debugging
+        print("Request data:", request.data)
+        print("Request FILES:", request.FILES)
+        
+        # Create a serializer with the data
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            print("Serializer is valid, saving...")
+            serializer.save()
+            
+            # Add absolute URL for profile image if it exists
+            response_data = serializer.data
+            if request.user.profile_image:
+                response_data['profileImage'] = request.build_absolute_uri(request.user.profile_image.url)
+            
+            return Response(response_data)
+        
+        # Print validation errors for debugging
+        print("Validation errors:", serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

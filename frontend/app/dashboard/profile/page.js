@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { useAuth } from "@/lib/auth"
-import { userApi, bookingApi } from "@/lib/api"
+import { bookingApi, authAPI } from "@/lib/api-client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -21,18 +21,20 @@ import { Loader2, Bell, Calendar, Clock, Upload, User, Settings, History } from 
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { user, logout, updateProfile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [bookingHistory, setBookingHistory] = useState([])
+
+  // Initialize form data with user info or empty strings
   const [profileData, setProfileData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    jobTitle: "",
-    department: "",
-    phoneNumber: "",
-    profileImage: null,
+    firstName: user?.firstName || user?.first_name || "",
+    lastName: user?.lastName || user?.last_name || "",
+    email: user?.email || "",
+    jobTitle: user?.jobTitle || user?.job_title || "",
+    department: user?.department || "",
+    phoneNumber: user?.phoneNumber || user?.phone_number || "",
+    profileImage: user?.profileImage || user?.profile_image || null,
   })
 
   const [preferences, setPreferences] = useState({
@@ -58,6 +60,12 @@ export default function ProfilePage() {
     smsNotifications: false,
   })
 
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return "U"
+    return `${profileData.firstName.charAt(0)}${profileData.lastName.charAt(0)}`.toUpperCase()
+  }
+
   // Load user data
   useEffect(() => {
     const fetchUserData = async () => {
@@ -66,24 +74,32 @@ export default function ProfilePage() {
       setLoading(true)
       try {
         // Fetch user profile
-        const userData = await userApi.getById(user.id)
+        const userData = await authAPI.getCurrentUser()
+
+        if (!userData) {
+          throw new Error("Failed to fetch user data")
+        }
+
+        console.log("Fetched user data:", userData)
 
         // Set profile data
         setProfileData({
-          firstName: userData.firstName || "",
-          lastName: userData.lastName || "",
+          firstName: userData.firstName || userData.first_name || "",
+          lastName: userData.lastName || userData.last_name || "",
           email: userData.email || "",
-          jobTitle: userData.jobTitle || "",
+          jobTitle: userData.jobTitle || userData.job_title || "",
           department: userData.department || "",
-          phoneNumber: userData.phoneNumber || "",
-          profileImage: userData.profileImage || null,
+          phoneNumber: userData.phoneNumber || userData.phone_number || "",
+          profileImage: userData.profileImage || userData.profile_image || null,
         })
 
         // Set preferences (in a real app, these would come from the backend)
-        setPreferences({
-          ...preferences,
-          darkMode: document.documentElement.classList.contains("dark"),
-        })
+        if (userData.preferences) {
+          setPreferences({
+            ...userData.preferences,
+            darkMode: document.documentElement.classList.contains("dark"),
+          })
+        }
 
         // Fetch booking history
         const bookings = await bookingApi.getByUser(user.id)
@@ -115,11 +131,21 @@ export default function ProfilePage() {
   const handleProfileImageChange = (e) => {
     const file = e.target.files[0]
     if (file) {
-      // In a real app, you would upload this to your server
-      // For demo purposes, we'll just create a local URL
+      console.log("Selected file:", file)
+
+      // Store the actual file object for upload
+      setProfileData((prev) => ({
+        ...prev,
+        profileImage: file,
+      }))
+
+      // Create a preview URL for display
       const reader = new FileReader()
       reader.onload = () => {
-        setProfileData((prev) => ({ ...prev, profileImage: reader.result }))
+        setProfileData((prev) => ({
+          ...prev,
+          profileImagePreview: reader.result,
+        }))
       }
       reader.readAsDataURL(file)
     }
@@ -128,22 +154,29 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSaving(true)
     try {
-      // Update user profile
-      await userApi.update(user.id, {
+      console.log("Saving profile with data:", profileData)
+
+      // Update user profile using the auth context's updateProfile function
+      const result = await authAPI.updateProfile({
         firstName: profileData.firstName,
         lastName: profileData.lastName,
         jobTitle: profileData.jobTitle,
         department: profileData.department,
         phoneNumber: profileData.phoneNumber,
-        // In a real app, you would handle the profile image upload separately
+        profileImage: profileData.profileImage instanceof File ? profileData.profileImage : undefined,
       })
 
-      // In a real app, you would also save preferences and notification settings
+      console.log("Profile update result:", result)
+
+      // Update the user context with the new data
+      if (updateProfile && typeof updateProfile === "function") {
+        updateProfile(result)
+      }
 
       toast.success("Profile updated successfully")
     } catch (error) {
       console.error("Error updating profile:", error)
-      toast.error("Failed to update profile")
+      toast.error("Failed to update profile: " + (error.message || "Unknown error"))
     } finally {
       setSaving(false)
     }
@@ -197,13 +230,15 @@ export default function ProfilePage() {
                 <div className="flex flex-col items-center space-y-4 sm:flex-row sm:items-start sm:space-x-4 sm:space-y-0">
                   <div className="relative">
                     <Avatar className="h-24 w-24">
-                      {profileData.profileImage ? (
-                        <AvatarImage src={profileData.profileImage} alt={profileData.firstName} />
+                      {profileData.profileImagePreview ? (
+                        <AvatarImage
+                          src={profileData.profileImagePreview || "/placeholder.svg"}
+                          alt={profileData.firstName}
+                        />
+                      ) : profileData.profileImage ? (
+                        <AvatarImage src={profileData.profileImage || "/placeholder.svg"} alt={profileData.firstName} />
                       ) : (
-                        <AvatarFallback className="text-2xl">
-                          {profileData.firstName?.[0] || ""}
-                          {profileData.lastName?.[0] || ""}
-                        </AvatarFallback>
+                        <AvatarFallback className="text-2xl">{getUserInitials()}</AvatarFallback>
                       )}
                     </Avatar>
                     <label
@@ -295,7 +330,7 @@ export default function ProfilePage() {
                   <div className="space-y-2">
                     <Label>Account Type</Label>
                     <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-muted-foreground">
-                      {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1) || "User"}
+                      {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1).toLowerCase() || "User"}
                     </div>
                   </div>
                 </div>
@@ -319,12 +354,12 @@ export default function ProfilePage() {
           </motion.div>
         </TabsContent>
 
-        <TabsContent value="preferences" className="space-y-4">
+        <TabsContent value="preferences">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <Card>
               <CardHeader>
-                <CardTitle>Booking Preferences</CardTitle>
-                <CardDescription>Customize your workspace booking experience</CardDescription>
+                <CardTitle>Preferences</CardTitle>
+                <CardDescription>Customize your workspace and booking preferences</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -335,14 +370,13 @@ export default function ProfilePage() {
                       onValueChange={(value) => handlePreferenceChange("preferredWorkspaceType", value)}
                     >
                       <SelectTrigger id="preferredWorkspaceType">
-                        <SelectValue placeholder="Select workspace type" />
+                        <SelectValue placeholder="Select a workspace type" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="desk">Desk</SelectItem>
-                        <SelectItem value="meeting">Meeting Room</SelectItem>
-                        <SelectItem value="phone">Phone Booth</SelectItem>
-                        <SelectItem value="conference">Conference Room</SelectItem>
-                        <SelectItem value="event">Event Space</SelectItem>
+                        <SelectItem value="privateOffice">Private Office</SelectItem>
+                        <SelectItem value="meetingRoom">Meeting Room</SelectItem>
+                        <SelectItem value="openArea">Open Area</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -353,151 +387,96 @@ export default function ProfilePage() {
                       onValueChange={(value) => handlePreferenceChange("preferredLocation", value)}
                     >
                       <SelectTrigger id="preferredLocation">
-                        <SelectValue placeholder="Select location" />
+                        <SelectValue placeholder="Select a location" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="East Wing">East Wing</SelectItem>
                         <SelectItem value="West Wing">West Wing</SelectItem>
                         <SelectItem value="North Wing">North Wing</SelectItem>
                         <SelectItem value="South Wing">South Wing</SelectItem>
-                        <SelectItem value="Central Area">Central Area</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="preferredStartTime">Preferred Start Time</Label>
-                    <Select
+                    <Input
+                      id="preferredStartTime"
+                      type="time"
                       value={preferences.preferredStartTime}
-                      onValueChange={(value) => handlePreferenceChange("preferredStartTime", value)}
-                    >
-                      <SelectTrigger id="preferredStartTime">
-                        <SelectValue placeholder="Select start time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 8).map((hour) => (
-                          <SelectItem key={`${hour}:00`} value={`${hour.toString().padStart(2, "0")}:00`}>
-                            {`${hour}:00 ${hour < 12 ? "AM" : "PM"}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(e) => handlePreferenceChange("preferredStartTime", e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="preferredEndTime">Preferred End Time</Label>
-                    <Select
+                    <Input
+                      id="preferredEndTime"
+                      type="time"
                       value={preferences.preferredEndTime}
-                      onValueChange={(value) => handlePreferenceChange("preferredEndTime", value)}
-                    >
-                      <SelectTrigger id="preferredEndTime">
-                        <SelectValue placeholder="Select end time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 9).map((hour) => (
-                          <SelectItem key={`${hour}:00`} value={`${hour.toString().padStart(2, "0")}:00`}>
-                            {`${hour}:00 ${hour < 12 ? "AM" : "PM"}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(e) => handlePreferenceChange("preferredEndTime", e.target.value)}
+                    />
                   </div>
                 </div>
 
                 <Separator />
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="autoCheckIn">Automatic Check-in</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Automatically check in to your bookings when you arrive
-                      </p>
+                <div className="space-y-2">
+                  <Label>Booking Options</Label>
+                  <div className="mt-2 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="autoCheckIn" className="pr-2">
+                        Auto Check-In
+                      </Label>
+                      <Switch
+                        id="autoCheckIn"
+                        checked={preferences.autoCheckIn}
+                        onCheckedChange={(checked) => handlePreferenceChange("autoCheckIn", checked)}
+                      />
                     </div>
-                    <Switch
-                      id="autoCheckIn"
-                      checked={preferences.autoCheckIn}
-                      onCheckedChange={(checked) => handlePreferenceChange("autoCheckIn", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="receiveReminders">Booking Reminders</Label>
-                      <p className="text-sm text-muted-foreground">Receive reminders before your scheduled bookings</p>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="receiveReminders" className="pr-2">
+                        Receive Booking Reminders
+                      </Label>
+                      <Switch
+                        id="receiveReminders"
+                        checked={preferences.receiveReminders}
+                        onCheckedChange={(checked) => handlePreferenceChange("receiveReminders", checked)}
+                      />
                     </div>
-                    <Switch
-                      id="receiveReminders"
-                      checked={preferences.receiveReminders}
-                      onCheckedChange={(checked) => handlePreferenceChange("receiveReminders", checked)}
-                    />
-                  </div>
-                  {preferences.receiveReminders && (
-                    <div className="ml-6 space-y-2">
-                      <Label htmlFor="reminderTime">Reminder Time</Label>
-                      <Select
-                        value={preferences.reminderTime}
-                        onValueChange={(value) => handlePreferenceChange("reminderTime", value)}
-                      >
-                        <SelectTrigger id="reminderTime">
-                          <SelectValue placeholder="Select reminder time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="15min">15 minutes before</SelectItem>
-                          <SelectItem value="30min">30 minutes before</SelectItem>
-                          <SelectItem value="1hour">1 hour before</SelectItem>
-                          <SelectItem value="2hours">2 hours before</SelectItem>
-                          <SelectItem value="1day">1 day before</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="calendarSync">Calendar Sync</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Sync your bookings with Google Calendar or Outlook
-                      </p>
-                    </div>
-                    <Switch
-                      id="calendarSync"
-                      checked={preferences.calendarSync}
-                      onCheckedChange={(checked) => handlePreferenceChange("calendarSync", checked)}
-                    />
-                  </div>
-                  {preferences.calendarSync && (
-                    <div className="ml-6 space-y-4">
-                      <div className="flex items-center space-x-4">
-                        <Button variant="outline" className="w-full">
-                          <svg
-                            className="mr-2 h-4 w-4"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm.5 2a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-11zm0 4a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-11zm0 4a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-11zm0 4a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-11z" />
-                          </svg>
-                          Connect Google Calendar
-                        </Button>
-                        <Button variant="outline" className="w-full">
-                          <svg
-                            className="mr-2 h-4 w-4"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M19 22H5a3 3 0 0 1-3-3V3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v12h4v4a3 3 0 0 1-3 3zm-1-5v2a1 1 0 0 0 2 0v-2h-2zm-2 3V4H4v15a1 1 0 0 0 1 1h11zM8 7h8v2H8V7zm0 4h8v2H8v-2zm0 4h5v2H8v-2z" />
-                          </svg>
-                          Connect Outlook
-                        </Button>
+                    {preferences.receiveReminders && (
+                      <div className="ml-6 space-y-2">
+                        <Label htmlFor="reminderTime">Reminder Time</Label>
+                        <Select
+                          value={preferences.reminderTime}
+                          onValueChange={(value) => handlePreferenceChange("reminderTime", value)}
+                        >
+                          <SelectTrigger id="reminderTime">
+                            <SelectValue placeholder="Select a reminder time" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="5min">5 minutes before</SelectItem>
+                            <SelectItem value="15min">15 minutes before</SelectItem>
+                            <SelectItem value="30min">30 minutes before</SelectItem>
+                            <SelectItem value="1hour">1 hour before</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Your bookings will be automatically added to your connected calendar
-                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="calendarSync" className="pr-2">
+                        Calendar Sync
+                      </Label>
+                      <Switch
+                        id="calendarSync"
+                        checked={preferences.calendarSync}
+                        onCheckedChange={(checked) => handlePreferenceChange("calendarSync", checked)}
+                      />
                     </div>
-                  )}
+                  </div>
                 </div>
               </CardContent>
               <CardFooter className="flex justify-between">
@@ -511,7 +490,7 @@ export default function ProfilePage() {
                       Saving...
                     </>
                   ) : (
-                    "Save Preferences"
+                    "Save Changes"
                   )}
                 </Button>
               </CardFooter>
@@ -519,123 +498,99 @@ export default function ProfilePage() {
           </motion.div>
         </TabsContent>
 
-        <TabsContent value="notifications" className="space-y-4">
+        <TabsContent value="notifications">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <Card>
               <CardHeader>
                 <CardTitle>Notification Settings</CardTitle>
-                <CardDescription>Manage how and when you receive notifications</CardDescription>
+                <CardDescription>Manage your notification preferences</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Notification Types</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="bookingConfirmations">Booking Confirmations</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive notifications when your booking is confirmed
-                        </p>
-                      </div>
-                      <Switch
-                        id="bookingConfirmations"
-                        checked={notifications.bookingConfirmations}
-                        onCheckedChange={(checked) => handleNotificationChange("bookingConfirmations", checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="bookingReminders">Booking Reminders</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive reminders before your scheduled bookings
-                        </p>
-                      </div>
-                      <Switch
-                        id="bookingReminders"
-                        checked={notifications.bookingReminders}
-                        onCheckedChange={(checked) => handleNotificationChange("bookingReminders", checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="bookingChanges">Booking Changes</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive notifications when your bookings are changed or cancelled
-                        </p>
-                      </div>
-                      <Switch
-                        id="bookingChanges"
-                        checked={notifications.bookingChanges}
-                        onCheckedChange={(checked) => handleNotificationChange("bookingChanges", checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="systemAnnouncements">System Announcements</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive important system announcements and updates
-                        </p>
-                      </div>
-                      <Switch
-                        id="systemAnnouncements"
-                        checked={notifications.systemAnnouncements}
-                        onCheckedChange={(checked) => handleNotificationChange("systemAnnouncements", checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="marketingEmails">Marketing Emails</Label>
-                        <p className="text-sm text-muted-foreground">Receive promotional emails and newsletters</p>
-                      </div>
-                      <Switch
-                        id="marketingEmails"
-                        checked={notifications.marketingEmails}
-                        onCheckedChange={(checked) => handleNotificationChange("marketingEmails", checked)}
-                      />
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bookingConfirmations" className="pr-2">
+                      Booking Confirmations
+                    </Label>
+                    <Switch
+                      id="bookingConfirmations"
+                      checked={notifications.bookingConfirmations}
+                      onCheckedChange={(checked) => handleNotificationChange("bookingConfirmations", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bookingReminders" className="pr-2">
+                      Booking Reminders
+                    </Label>
+                    <Switch
+                      id="bookingReminders"
+                      checked={notifications.bookingReminders}
+                      onCheckedChange={(checked) => handleNotificationChange("bookingReminders", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bookingChanges" className="pr-2">
+                      Booking Changes
+                    </Label>
+                    <Switch
+                      id="bookingChanges"
+                      checked={notifications.bookingChanges}
+                      onCheckedChange={(checked) => handleNotificationChange("bookingChanges", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="systemAnnouncements" className="pr-2">
+                      System Announcements
+                    </Label>
+                    <Switch
+                      id="systemAnnouncements"
+                      checked={notifications.systemAnnouncements}
+                      onCheckedChange={(checked) => handleNotificationChange("systemAnnouncements", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="marketingEmails" className="pr-2">
+                      Marketing Emails
+                    </Label>
+                    <Switch
+                      id="marketingEmails"
+                      checked={notifications.marketingEmails}
+                      onCheckedChange={(checked) => handleNotificationChange("marketingEmails", checked)}
+                    />
                   </div>
                 </div>
 
                 <Separator />
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Notification Channels</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="pushNotifications">Push Notifications</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive notifications in your browser or mobile app
-                        </p>
-                      </div>
-                      <Switch
-                        id="pushNotifications"
-                        checked={notifications.pushNotifications}
-                        onCheckedChange={(checked) => handleNotificationChange("pushNotifications", checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="emailNotifications">Email Notifications</Label>
-                        <p className="text-sm text-muted-foreground">Receive notifications via email</p>
-                      </div>
-                      <Switch
-                        id="emailNotifications"
-                        checked={notifications.emailNotifications}
-                        onCheckedChange={(checked) => handleNotificationChange("emailNotifications", checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="smsNotifications">SMS Notifications</Label>
-                        <p className="text-sm text-muted-foreground">Receive notifications via text message</p>
-                      </div>
-                      <Switch
-                        id="smsNotifications"
-                        checked={notifications.smsNotifications}
-                        onCheckedChange={(checked) => handleNotificationChange("smsNotifications", checked)}
-                      />
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="pushNotifications" className="pr-2">
+                      Push Notifications
+                    </Label>
+                    <Switch
+                      id="pushNotifications"
+                      checked={notifications.pushNotifications}
+                      onCheckedChange={(checked) => handleNotificationChange("pushNotifications", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="emailNotifications" className="pr-2">
+                      Email Notifications
+                    </Label>
+                    <Switch
+                      id="emailNotifications"
+                      checked={notifications.emailNotifications}
+                      onCheckedChange={(checked) => handleNotificationChange("emailNotifications", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="smsNotifications" className="pr-2">
+                      SMS Notifications
+                    </Label>
+                    <Switch
+                      id="smsNotifications"
+                      checked={notifications.smsNotifications}
+                      onCheckedChange={(checked) => handleNotificationChange("smsNotifications", checked)}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -650,7 +605,7 @@ export default function ProfilePage() {
                       Saving...
                     </>
                   ) : (
-                    "Save Notification Settings"
+                    "Save Changes"
                   )}
                 </Button>
               </CardFooter>
@@ -658,66 +613,49 @@ export default function ProfilePage() {
           </motion.div>
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-4">
+        <TabsContent value="history">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <Card>
               <CardHeader>
                 <CardTitle>Booking History</CardTitle>
                 <CardDescription>View your past and upcoming bookings</CardDescription>
               </CardHeader>
-              <CardContent>
-                {bookingHistory.length > 0 ? (
-                  <div className="space-y-4">
-                    {bookingHistory.map((booking, index) => (
-                      <motion.div
-                        key={booking.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
-                        className="rounded-lg border p-4"
-                      >
-                        <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                          <div>
-                            <h4 className="font-medium">{booking.title}</h4>
-                            <div className="flex items-center text-sm text-muted-foreground">
-                              <Calendar className="mr-1 h-3 w-3" />
-                              <span>{format(new Date(booking.date), "PPP")}</span>
-                              <span className="mx-1">•</span>
-                              <Clock className="mr-1 h-3 w-3" />
-                              <span>
-                                {booking.startTime} - {booking.endTime}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge
-                              variant={
-                                booking.status === "confirmed"
-                                  ? "outline"
-                                  : booking.status === "cancelled"
-                                    ? "destructive"
-                                    : "secondary"
-                              }
-                            >
-                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                            </Badge>
-                            <Badge variant="secondary">{booking.workspaceName}</Badge>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
+              <CardContent className="space-y-4">
+                {bookingHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <Calendar className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No booking history available</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <History className="mb-2 h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-2 text-lg font-semibold">No booking history</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">You haven't made any bookings yet</p>
-                    <Button className="mt-4" onClick={() => router.push("/dashboard/workspaces")}>
-                      Book a Workspace
-                    </Button>
+                  <div className="divide-y divide-border">
+                    {bookingHistory.map((booking) => (
+                      <div key={booking.id} className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-3">
+                        <div className="col-span-1">
+                          <div className="font-medium">{booking.workspace?.name || "Workspace"}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {format(new Date(booking.startTime), "PPP")}
+                          </div>
+                        </div>
+                        <div className="col-span-1">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            {format(new Date(booking.startTime), "h:mm a")} -{" "}
+                            {format(new Date(booking.endTime), "h:mm a")}
+                          </div>
+                        </div>
+                        <div className="col-span-1 flex items-center justify-end">
+                          <Badge variant="secondary">Confirmed</Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
+              <CardFooter className="flex justify-end">
+                <Button variant="outline" onClick={() => router.push("/dashboard")}>
+                  Close
+                </Button>
+              </CardFooter>
             </Card>
           </motion.div>
         </TabsContent>

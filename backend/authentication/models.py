@@ -1,4 +1,3 @@
-# models.py
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import RegexValidator
@@ -59,6 +58,11 @@ class User(AbstractUser):
         null=True 
     )
     organization = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Profile fields
+    job_title = models.CharField(max_length=100, blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
+    profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     
     # Authentication fields
     USERNAME_FIELD = 'email'
