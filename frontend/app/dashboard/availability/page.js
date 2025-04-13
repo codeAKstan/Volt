@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { format, addDays, startOfWeek, eachDayOfInterval } from "date-fns"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth"
-import { workspaceApi, bookingApi } from "@/lib/api"
+import { workspaceApi, bookingApi } from "@/lib/api-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -65,17 +65,17 @@ export default function AvailabilityPage() {
     }
 
     // Filter by space type
-    if (spaceType && workspace.type !== spaceType) {
+    if (spaceType && spaceType !== "all" && workspace.type !== spaceType) {
       return false
     }
 
     // Filter by location
-    if (location && workspace.location !== location) {
+    if (location && location !== "all" && workspace.location !== location) {
       return false
     }
 
     // Filter by capacity
-    if (capacity) {
+    if (capacity && capacity !== "any") {
       const minCapacity = Number.parseInt(capacity)
       if (!workspace.capacity || workspace.capacity < minCapacity) {
         return false
@@ -230,7 +230,7 @@ export default function AvailabilityPage() {
                 <SelectValue placeholder="Capacity" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any capacity</SelectItem>
+                <SelectItem value="any">Any capacity</SelectItem>
                 <SelectItem value="1">1+ person</SelectItem>
                 <SelectItem value="2">2+ people</SelectItem>
                 <SelectItem value="4">4+ people</SelectItem>

@@ -1,15 +1,15 @@
 from django.shortcuts import render
 
 # Create your views here.
-from rest_framework import viewsets, generics
+from rest_framework import viewsets, generics, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking
 from .serializers import WorkSpaceSerializer, HubSerializer, DeskSerializer, MeetingRoomSerializer, BookingSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
-from rest_framework import status
 from django.core.exceptions import ValidationError
-
+from datetime import datetime
 
 
 # WorkSpace ViewSet (for both hubs and meeting rooms)
@@ -57,6 +57,12 @@ class DeskViewSet(viewsets.ModelViewSet):
         # Custom logic for creating desks within a hub
         hub = get_object_or_404(Hub, pk=self.kwargs['hub_id'])
         serializer.save(hub=hub)
+    
+    def list(self, request, *args, **kwargs):
+        hub_id = self.kwargs.get('hub_id')
+        desks = Desk.objects.filter(hub_id=hub_id)
+        serializer = DeskSerializer(desks, many=True)
+        return Response(serializer.data)
 
 
 # MeetingRoom ViewSet (for meeting rooms within a workspace)
@@ -153,5 +159,89 @@ class BookingListView(generics.ListAPIView):
         return Booking.objects.filter(user=self.request.user)
 
 
+# Booking Cancel View (to cancel a booking)
+class BookingCancelView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, pk):
+        booking = get_object_or_404(Booking, id=pk)
+        
+        # Check if the user is the owner of the booking
+        if booking.user != request.user:
+            return Response({"error": "You don't have permission to cancel this booking"}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        
+        # Update booking status
+        booking.status = "cancelled"
+        booking.save()
+        
+        # Update workspace availability
+        if booking.desk:
+            booking.desk.is_available = True
+            booking.desk.save()
+        elif booking.meeting_room:
+            booking.meeting_room.is_available = True
+            booking.meeting_room.save()
+        
+        return Response({"status": "cancelled"}, status=status.HTTP_200_OK)
 
 
+# Check Availability View
+class CheckAvailabilityView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, workspace_id):
+        workspace = get_object_or_404(WorkSpace, id=workspace_id)
+        date = request.data.get('date')
+        start_time = request.data.get('start_time')
+        end_time = request.data.get('end_time')
+        
+        if not date or not start_time or not end_time:
+            return Response({"error": "Date, start time, and end time are required"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        # Convert string times to datetime objects
+        try:
+            start_datetime = datetime.strptime(f"{date} {start_time}", "%Y-%m-%d %H:%M")
+            end_datetime = datetime.strptime(f"{date} {end_time}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            return Response({"error": "Invalid date or time format"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check for overlapping bookings
+        overlapping_bookings = []
+        
+        if workspace.type == 'desk':
+            # For desk type, check desk availability
+            desks = Desk.objects.filter(hub__workspace=workspace)
+            for desk in desks:
+                desk_bookings = Booking.objects.filter(
+                    desk=desk,
+                    start_time__lt=end_datetime,
+                    end_time__gt=start_datetime,
+                    status='confirmed'
+                )
+                if desk_bookings.exists():
+                    overlapping_bookings.extend(desk_bookings)
+        else:
+            # For meeting room type, check meeting room availability
+            meeting_rooms = MeetingRoom.objects.filter(workspace=workspace)
+            for room in meeting_rooms:
+                room_bookings = Booking.objects.filter(
+                    meeting_room=room,
+                    start_time__lt=end_datetime,
+                    end_time__gt=start_datetime,
+                    status='confirmed'
+                )
+                if room_bookings.exists():
+                    overlapping_bookings.extend(room_bookings)
+        
+        # Serialize overlapping bookings
+        booking_serializer = BookingSerializer(overlapping_bookings, many=True)
+        
+        # Return availability status
+        return Response({
+            "available": len(overlapping_bookings) == 0,
+            "workspace": WorkSpaceSerializer(workspace).data,
+            "overlappingBookings": booking_serializer.data
+        })

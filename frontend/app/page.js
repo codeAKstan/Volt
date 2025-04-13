@@ -254,7 +254,7 @@ export default function Home() {
                 >
                   <div className="bg-gradient-to-r from-primary/20 to-purple-400/10 rounded-2xl p-6 shadow-xl">
                     <img
-                      src="/placeholder.svg?height=400&width=600"
+                      src="/lp.png?height=400&width=600"
                       alt="Volt Dashboard Preview"
                       className="rounded-lg shadow-lg"
                     />

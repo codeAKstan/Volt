@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CalendarIcon, Clock, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
-import { workspaceApi, bookingApi } from "@/lib/api"
+import { workspaceApi, bookingApi } from "@/lib/api-client"
 
 export function BookingForm({ workspaceId, onSuccess }) {
   const router = useRouter()
@@ -190,6 +190,10 @@ export function BookingForm({ workspaceId, onSuccess }) {
         attendees: [...formData.attendees, user.email], // Include the current user
         notes: formData.notes,
         userId: user.id,
+        workspaceName: workspace.name,
+        // Determine if it's a desk or meeting room based on workspace type
+        ...(workspace.type === "desk" ? { deskId: workspace.id } : {}),
+        ...(workspace.type === "meeting" ? { meetingRoomId: workspace.id } : {}),
       }
 
       const result = await bookingApi.create(bookingData)
