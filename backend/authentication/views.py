@@ -101,26 +101,15 @@ class UserProfileView(APIView):
     
     def patch(self, request):
         """Update the current user's profile"""
-        # Handle both form data and JSON
-        if request.content_type == 'application/json':
-            data = request.data
-        else:
-            data = request.data.dict()
+        # Print request data for debugging
+        print("Request data:", request.data)
+        print("Request FILES:", request.FILES)
         
-        # Convert camelCase to snake_case for backend
-        if 'firstName' in data:
-            data['first_name'] = data.pop('firstName')
-        if 'lastName' in data:
-            data['last_name'] = data.pop('lastName')
-        if 'phoneNumber' in data:
-            data['phone_number'] = data.pop('phoneNumber')
-        if 'jobTitle' in data:
-            data['job_title'] = data.pop('jobTitle')
-        if 'profileImage' in data:
-            data['profile_image'] = data.pop('profileImage')
+        # Create a serializer with the data
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
         
-        serializer = UserSerializer(request.user, data=data, partial=True)
         if serializer.is_valid():
+            print("Serializer is valid, saving...")
             serializer.save()
             
             # Add absolute URL for profile image if it exists
@@ -130,4 +119,6 @@ class UserProfileView(APIView):
             
             return Response(response_data)
         
+        # Print validation errors for debugging
+        print("Validation errors:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

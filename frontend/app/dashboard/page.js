@@ -127,7 +127,7 @@ export default function DashboardPage() {
           </h2>
           <p className="text-muted-foreground">
             Here's what's happening with your workspace today.
-            {/* {user?.role && <span className="ml-1 font-medium">({user.role})</span>} */}
+            {user?.role && <span className="ml-1 font-medium">({user.role})</span>}
           </p>
         </div>
         <div className="flex items-center space-x-2">
