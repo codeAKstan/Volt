@@ -12,7 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { WorkspaceCard } from "@/components/dashboard/workspace-card"
 import { Clock, Plus, Users, LayoutDashboard, Loader2, Calendar } from "lucide-react"
-import { bookingApi, workspaceApi } from "@/lib/api"
+import { bookingApi, workspaceApi } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -42,10 +43,12 @@ export default function DashboardPage() {
       try {
         // Fetch bookings
         let bookingsData = []
-        if (user?.role === "ADMIN") {
-          bookingsData = await bookingApi.getAll()
-        } else {
-          bookingsData = await bookingApi.getByUser(user.id)
+        if (user) {
+          if (user.role === "ADMIN" || user.role === "admin") {
+            bookingsData = await bookingApi.getAll()
+          } else {
+            bookingsData = await bookingApi.getByUser(user.id)
+          }
         }
 
         // Fetch workspaces
@@ -72,6 +75,7 @@ export default function DashboardPage() {
         })
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
+        toast.error("Failed to load dashboard data")
       } finally {
         setLoading(false)
       }
@@ -105,8 +109,11 @@ export default function DashboardPage() {
       setBookings((prev) =>
         prev.map((booking) => (booking.id === bookingId ? { ...booking, status: "cancelled" } : booking)),
       )
+
+      toast.success("Booking cancelled successfully")
     } catch (error) {
       console.error("Error cancelling booking:", error)
+      toast.error("Failed to cancel booking")
     }
   }
 
@@ -127,7 +134,6 @@ export default function DashboardPage() {
           </h2>
           <p className="text-muted-foreground">
             Here's what's happening with your workspace today.
-            {user?.role && <span className="ml-1 font-medium">({user.role})</span>}
           </p>
         </div>
         <div className="flex items-center space-x-2">

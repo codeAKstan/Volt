@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Loader2, Plus } from "lucide-react"
-import { workspaceApi } from "@/lib/api"
+import { workspaceApi } from "@/lib/api-client"
 
 export function AddWorkspaceModal({ onWorkspaceAdded }) {
   const [open, setOpen] = useState(false)
@@ -53,24 +53,20 @@ export function AddWorkspaceModal({ onWorkspaceAdded }) {
     try {
       // Prepare the data
       const workspaceData = {
-        ...formData,
-        id: Date.now(), // Generate a unique ID
+        name: formData.name,
+        type: formData.type,
+        location: formData.location,
         capacity: formData.capacity ? Number.parseInt(formData.capacity) : null,
         hourlyRate: formData.hourlyRate ? Number.parseFloat(formData.hourlyRate) : null,
         amenities: formData.amenities
           .split(",")
           .map((item) => item.trim())
           .filter(Boolean),
+        available: formData.available,
       }
 
-      // Get existing workspaces
-      const existingWorkspaces = await workspaceApi.getAll()
-
-      // Add the new workspace
-      const updatedWorkspaces = [...existingWorkspaces, workspaceData]
-
-      // Save to localStorage (simulating API)
-      localStorage.setItem("workspaces", JSON.stringify(updatedWorkspaces))
+      // Create the workspace in the backend
+      const newWorkspace = await workspaceApi.create(workspaceData)
 
       toast.success("Workspace added successfully!")
       setOpen(false)
@@ -86,7 +82,7 @@ export function AddWorkspaceModal({ onWorkspaceAdded }) {
 
       // Notify parent component
       if (onWorkspaceAdded) {
-        onWorkspaceAdded(workspaceData)
+        onWorkspaceAdded(newWorkspace)
       }
     } catch (error) {
       console.error("Error adding workspace:", error)
