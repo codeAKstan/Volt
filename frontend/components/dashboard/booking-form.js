@@ -202,9 +202,10 @@ export function BookingForm({ workspaceId, onSuccess }) {
 
       if (onSuccess) {
         onSuccess(result)
-      } else {
-        router.push("/dashboard/bookings")
       }
+
+      // Navigate to the bookings page to see the new booking
+      router.push("/dashboard/bookings")
     } catch (error) {
       console.error("Error creating booking:", error)
       toast.error(error.message || "Failed to create booking")
