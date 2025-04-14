@@ -1,0 +1,18 @@
+Booking Confirmation
+
+Hello,
+
+Your booking has been confirmed. Here are the details:
+
+Booking: {{ booking_title }}
+Workspace: {{ workspace_name }}
+Date: {{ date }}
+Time: {{ start_time }} - {{ end_time }}
+{% if attendees %}Attendees: {{ attendees }}{% endif %}
+
+You can view and manage your bookings from your dashboard.
+
+Thank you for using Volt Workspace Booking!
+
+© {{ current_year }} Volt Workspace. All rights reserved.
+This is an automated message, please do not reply to this email.

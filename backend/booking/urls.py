@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .views import (
     BookingCreateView, 
     BookingListView, 
@@ -7,7 +7,10 @@ from .views import (
     DeskViewSet, 
     MeetingRoomViewSet,
     BookingCancelView,
-    CheckAvailabilityView
+    CheckAvailabilityView,
+    NotificationListView,
+    NotificationCreateView,
+    NotificationMarkAsReadView
 )
 from rest_framework.routers import DefaultRouter
 
@@ -22,6 +25,9 @@ urlpatterns = [
     path('workspace/<int:workspace_id>/hubs/', HubViewSet.as_view({'get': 'list'}), name='hub-list'),
     path('workspace/<int:workspace_id>/meeting-rooms/', MeetingRoomViewSet.as_view({'get': 'list'}), name='meeting-room-list'),
     path('hub/<int:hub_id>/desks/', DeskViewSet.as_view({'get': 'list'}), name='desk-list'),
+    path('notifications/list/', NotificationListView.as_view(), name='notification-list'),
+    path('notifications/create/', NotificationCreateView.as_view(), name='notification-create'),
+    path('notifications/<int:pk>/mark-as-read/', NotificationMarkAsReadView.as_view(), name='notification-mark-as-read'),
 ]
 
 urlpatterns += router.urls

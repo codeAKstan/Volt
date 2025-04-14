@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth"
-import { bookingApi } from "@/lib/api"
+import { bookingApi } from "@/lib/api-client"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { NewBookingModal } from "@/components/dashboard/new-booking-modal"
 
@@ -33,7 +34,7 @@ export default function BookingsPage() {
       try {
         let data = []
 
-        if (user?.role === "admin") {
+        if (user?.role === "admin" || user?.role === "ADMIN") {
           // Admins can see all bookings
           data = await bookingApi.getAll()
         } else {
@@ -96,8 +97,8 @@ export default function BookingsPage() {
     // Filter by search query
     if (
       searchQuery &&
-      !booking.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !booking.workspaceName.toLowerCase().includes(searchQuery.toLowerCase())
+      !booking.title?.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !booking.workspaceName?.toLowerCase().includes(searchQuery.toLowerCase())
     ) {
       return false
     }
@@ -108,7 +109,7 @@ export default function BookingsPage() {
     }
 
     // Filter by space type
-    if (spaceType && spaceType !== "all" && !booking.workspaceName.toLowerCase().includes(spaceType.toLowerCase())) {
+    if (spaceType && spaceType !== "all" && !booking.workspaceName?.toLowerCase().includes(spaceType.toLowerCase())) {
       return false
     }
 
@@ -145,9 +146,7 @@ export default function BookingsPage() {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Button variant="ghost" className="absolute right-2 top-2 h-6 w-6 p-0" onClick={() => setDate(null)}>
-              ×
-            </Button>
+            <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
           </PopoverContent>
         </Popover>
 
@@ -216,12 +215,10 @@ export default function BookingsPage() {
                   ? "Try adjusting your filters"
                   : "You don't have any upcoming bookings"}
               </p>
-              <NewBookingModal onSuccess={handleNewBooking}>
-                <Button className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Book a workspace
-                </Button>
-              </NewBookingModal>
+              <Button className="mt-4" onClick={() => router.push("/dashboard/workspaces")}>
+                <Plus className="mr-2 h-4 w-4" />
+                Book a workspace
+              </Button>
             </div>
           )}
         </TabsContent>

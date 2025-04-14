@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { CalendarIcon, Clock, Loader2 } from "lucide-react"
+import { CalendarIcon, Clock, Loader2 } from 'lucide-react'
 import { useAuth } from "@/lib/auth"
 import { workspaceApi, bookingApi } from "@/lib/api-client"
 
@@ -187,24 +187,26 @@ export function BookingForm({ workspaceId, onSuccess }) {
         date: format(formData.date, "yyyy-MM-dd"),
         startTime: formData.startTime,
         endTime: formData.endTime,
-        attendees: [...formData.attendees, user.email], // Include the current user
+        attendees: [...formData.attendees],
         notes: formData.notes,
-        userId: user.id,
+        userId: user?.id,
         workspaceName: workspace.name,
         // Determine if it's a desk or meeting room based on workspace type
         ...(workspace.type === "desk" ? { deskId: workspace.id } : {}),
         ...(workspace.type === "meeting" ? { meetingRoomId: workspace.id } : {}),
       }
 
+      console.log("Sending booking data:", bookingData)
       const result = await bookingApi.create(bookingData)
 
       toast.success("Booking created successfully!")
 
       if (onSuccess) {
         onSuccess(result)
-      } else {
-        router.push("/dashboard/bookings")
       }
+
+      // Navigate to the bookings page to see the new booking
+      router.push("/dashboard/bookings")
     } catch (error) {
       console.error("Error creating booking:", error)
       toast.error(error.message || "Failed to create booking")

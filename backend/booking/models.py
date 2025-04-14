@@ -1,127 +1,139 @@
 from django.db import models
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.db.models import Q
 
+User = get_user_model()
 
-# Location Model
 class Location(models.Model):
     name = models.CharField(max_length=100)
-    address = models.TextField()
-    city = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-
+    address = models.TextField(blank=True, null=True)
+    
     def __str__(self):
         return self.name
 
+class Feature(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return self.name
 
-# Workspace Model (Hub)
 class WorkSpace(models.Model):
-    name = models.CharField(max_length=255)
-    location = models.ForeignKey(Location, on_delete=models.CASCADE)
-    description = models.TextField()
-    capacity = models.IntegerField()  # Total capacity of the workspace (only used for hubs)
-    type = models.CharField(max_length=50, choices=[('desk', 'Desk'), ('meeting_room', 'Meeting Room')])
+    WORKSPACE_TYPES = (
+        ('desk', 'Desk'),
+        ('meeting', 'Meeting Room'),
+        ('conference', 'Conference Room'),
+        ('phone', 'Phone Booth'),
+        ('event', 'Event Hall'),
+        ('collaboration', 'Collaboration Space'),
+    )
+    
+    name = models.CharField(max_length=100)
+    type = models.CharField(max_length=20, choices=WORKSPACE_TYPES, default='desk')
+    description = models.TextField(blank=True, null=True)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='workspaces', null=True)
+    capacity = models.IntegerField(blank=True, null=True)
     is_available = models.BooleanField(default=True)
-
+    features = models.ManyToManyField(Feature, related_name='workspaces', blank=True)
+    hourly_rate = models.DecimalField(max_digits=6, decimal_places=2, default=5.00)
+    
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.get_type_display()})"
 
-
-# Hub (which can contain multiple desks) Model
 class Hub(models.Model):
+    name = models.CharField(max_length=100)
     workspace = models.ForeignKey(WorkSpace, on_delete=models.CASCADE, related_name='hubs')
-    name = models.CharField(max_length=100)
-    location = models.ForeignKey(Location, on_delete=models.CASCADE)
-    capacity = models.IntegerField()
-
+    capacity = models.IntegerField(default=0)
+    
     def __str__(self):
-        return self.name
+        return f"{self.name} in {self.workspace.name}"
 
-
-# Desk Model - Represents individual desks within a hub
 class Desk(models.Model):
-    hub = models.ForeignKey(Hub, on_delete=models.CASCADE, related_name="desks")
-    name = models.CharField(max_length=100)  # Desk ID or Name
-    is_available = models.BooleanField(default=True)  # Availability of individual desk
-
-    def __str__(self):
-        return f"Desk {self.name} in {self.hub.name}"
-
-    def update_availability(self):
-        """Update availability based on bookings."""
-        bookings = Booking.objects.filter(desk=self, status='confirmed')
-        if bookings.exists():
-            self.is_available = False
-        else:
-            self.is_available = True
-        self.save()
-
-
-# MeetingRoom Model - Represents individual meeting rooms
-class MeetingRoom(models.Model):
-    workspace = models.ForeignKey(WorkSpace, on_delete=models.CASCADE, related_name='meeting_rooms')
     name = models.CharField(max_length=100)
-    location = models.ForeignKey(Location, on_delete=models.CASCADE)
-    capacity = models.IntegerField()
+    hub = models.ForeignKey(Hub, on_delete=models.CASCADE, related_name='desks')
     is_available = models.BooleanField(default=True)
-
+    
     def __str__(self):
-        return self.name
+        return f"{self.name} in {self.hub.name}"
 
+class MeetingRoom(models.Model):
+    name = models.CharField(max_length=100)
+    workspace = models.ForeignKey(WorkSpace, on_delete=models.CASCADE, related_name='meeting_rooms')
+    capacity = models.IntegerField(default=0)
+    is_available = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.name} in {self.workspace.name}"
 
-# Booking Model
 class Booking(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)  # Use custom user model
-    booking_date = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=[('confirmed', 'Confirmed'), ('cancelled', 'Cancelled')])
-    work_space = models.ForeignKey(WorkSpace, on_delete=models.CASCADE)  # For referencing the workspace (hub or meeting room)
-    desk = models.ForeignKey(Desk, on_delete=models.CASCADE, null=True, blank=True)  # For booking desks
-    meeting_room = models.ForeignKey(MeetingRoom, on_delete=models.CASCADE, null=True, blank=True)  # For booking meeting rooms
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
+    work_space = models.ForeignKey(WorkSpace, on_delete=models.CASCADE, related_name='bookings', null=True)
+    desk = models.ForeignKey(Desk, on_delete=models.SET_NULL, related_name='bookings', null=True, blank=True)
+    meeting_room = models.ForeignKey(MeetingRoom, on_delete=models.SET_NULL, related_name='bookings', null=True, blank=True)
+    title = models.CharField(max_length=200, blank=True, null=True)
+    date = models.DateField(null=True, blank=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmed')
+    booking_date = models.DateTimeField(auto_now_add=True)
+    attendees = models.JSONField(default=list, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    
     def __str__(self):
-        if self.desk:
-            return f"{self.user.username} booked {self.desk.name} from {self.start_time} to {self.end_time}"
-        elif self.meeting_room:
-            return f"{self.user.username} booked {self.meeting_room.name} from {self.start_time} to {self.end_time}"
-
+        space_name = self.desk.name if self.desk else (self.meeting_room.name if self.meeting_room else "Unknown")
+        return f"Booking for {space_name} by {self.user.email}"
+    
     def clean(self):
-        """Prevent double booking of the same desk or meeting room."""
-        conflicting_booking = None
-        if self.desk:
-            conflicting_booking = Booking.objects.filter(
-                desk=self.desk,
-                start_time__lt=self.end_time,
-                end_time__gt=self.start_time
-            ).exists()
-        elif self.meeting_room:
-            conflicting_booking = Booking.objects.filter(
-                meeting_room=self.meeting_room,
-                start_time__lt=self.end_time,
-                end_time__gt=self.start_time
-            ).exists()
-
-        if conflicting_booking:
+        """Custom validation for bookings"""
+        # Skip validation if the booking is being cancelled
+        if self.status == 'cancelled':
+            return
+            
+        # Check for overlapping bookings
+        overlapping_bookings = Booking.objects.filter(
+            Q(desk=self.desk) | Q(meeting_room=self.meeting_room),
+            ~Q(status='cancelled'),  # Exclude cancelled bookings
+            start_time__lt=self.end_time,
+            end_time__gt=self.start_time
+        )
+        
+        # Exclude self when updating
+        if self.pk:
+            overlapping_bookings = overlapping_bookings.exclude(pk=self.pk)
+        
+        if overlapping_bookings.exists():
             raise ValidationError("This space is already booked for the selected time range.")
     
     def save(self, *args, **kwargs):
-        self.clean()  # Run the custom validation before saving the booking
+        # Only run validation if this is a new booking or status is not cancelled
+        if not self.pk or self.status != 'cancelled':
+            self.clean()  # Run the custom validation before saving the booking
         super().save(*args, **kwargs)
-
-        # After a booking is saved, update the availability of desks or meeting rooms
-        if self.desk:
-            self.desk.update_availability()
-        elif self.meeting_room:
-            self.meeting_room.is_available = False
-            self.meeting_room.save()
-            # Mark meeting rooms as unavailable if needed (optional)
-            
-
-class WorkspaceFeature(models.Model):
-    name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(WorkSpace, on_delete=models.CASCADE, related_name='features')
+class Notification(models.Model):
+    TYPE_CHOICES = (
+        ('booking_confirmation', 'Booking Confirmation'),
+        ('booking_reminder', 'Booking Reminder'),
+        ('booking_cancellation', 'Booking Cancellation'),
+        ('booking_conflict', 'Booking Conflict'),
+        ('system_announcement', 'System Announcement'),
+        ('feature_announcement', 'Feature Announcement'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='booking_notifications')  # Updated related_name
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=100)
+    message = models.TextField()
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='notifications', null=True, blank=True)
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"{self.name} - {self.workspace.name}"
+        return f"{self.type} for {self.user.email}"

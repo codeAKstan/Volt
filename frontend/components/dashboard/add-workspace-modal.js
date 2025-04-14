@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/dialog"
 import { Loader2, Plus } from "lucide-react"
 import { workspaceApi } from "@/lib/api-client"
+import { useAuth } from "@/lib/auth"
 
 export function AddWorkspaceModal({ onWorkspaceAdded }) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -51,6 +53,13 @@ export function AddWorkspaceModal({ onWorkspaceAdded }) {
     setLoading(true)
 
     try {
+      // Check if user has permission to add workspaces
+      if (user?.role !== "ADMIN" && user?.role !== "admin") {
+        toast.error("You don't have permission to add a workspace")
+        setOpen(false)
+        return
+      }
+
       // Prepare the data
       const workspaceData = {
         name: formData.name,
@@ -86,7 +95,11 @@ export function AddWorkspaceModal({ onWorkspaceAdded }) {
       }
     } catch (error) {
       console.error("Error adding workspace:", error)
-      toast.error("Failed to add workspace")
+      if (error.message.includes("permission")) {
+        toast.error("You don't have permission to add a workspace")
+      } else {
+        toast.error(`Failed to add workspace: ${error.message}`)
+      }
     } finally {
       setLoading(false)
     }

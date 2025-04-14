@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
@@ -20,46 +20,69 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { notificationApi } from "@/lib/api-client"
+import { formatDistanceToNow } from "date-fns"
 
 export function DashboardHeader() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "New booking",
-      message: "Your booking for Meeting Room A has been confirmed",
-      read: false,
-      time: "5 min ago",
-    },
-    {
-      id: 2,
-      title: "Booking reminder",
-      message: "You have a booking in 30 minutes",
-      read: true,
-      time: "30 min ago",
-    },
-    {
-      id: 3,
-      title: "System update",
-      message: "The system will be updated tonight at 2 AM",
-      read: true,
-      time: "2 hours ago",
-    },
-  ])
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) return
+
+      setLoading(true)
+      try {
+        const data = await notificationApi.getByUser(user.id)
+        setNotifications(data)
+      } catch (error) {
+        console.error("Error fetching notifications:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchNotifications()
+
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000)
+
+    return () => clearInterval(interval)
+  }, [user])
+
   const unreadNotifications = notifications.filter((n) => !n.read).length
 
-  const handleMarkAsRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
-    )
+  const handleMarkAsRead = async (id) => {
+    if (!user) return
+
+    try {
+      await notificationApi.markAsRead(user.id, id)
+      setNotifications((prev) =>
+        prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
+      )
+    } catch (error) {
+      console.error("Error marking notification as read:", error)
+    }
   }
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
+  const handleMarkAllAsRead = async () => {
+    if (!user) return
+
+    try {
+      // Mark all unread notifications as read
+      const unreadNotifications = notifications.filter((n) => !n.read)
+      for (const notification of unreadNotifications) {
+        await notificationApi.markAsRead(user.id, notification.id)
+      }
+
+      setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error)
+    }
   }
 
   // Get page title from pathname
@@ -157,7 +180,12 @@ export function DashboardHeader() {
                 )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {notifications.length > 0 ? (
+              {loading ? (
+                <div className="p-4 text-center">
+                  <span className="loading loading-spinner loading-sm"></span>
+                  <span className="ml-2 text-sm text-muted-foreground">Loading notifications...</span>
+                </div>
+              ) : notifications.length > 0 ? (
                 notifications.map((notification) => (
                   <DropdownMenuItem
                     key={notification.id}
@@ -173,7 +201,11 @@ export function DashboardHeader() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">{notification.message}</p>
-                    <span className="mt-1 text-xs text-muted-foreground">{notification.time}</span>
+                    <span className="mt-1 text-xs text-muted-foreground">
+                      {notification.createdAt
+                        ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })
+                        : ""}
+                    </span>
                   </DropdownMenuItem>
                 ))
               ) : (
@@ -196,7 +228,7 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage
+                <AvatarImage
                     src={user?.profileImage || user?.avatar || "/placeholder.svg"}
                     alt={user?.first_name || user?.firstName || "User"}
                   />
