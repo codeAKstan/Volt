@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { format } from "date-fns"
 import { CalendarIcon, Clock, Users, MapPin } from "lucide-react"
+import { Plus } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,6 +25,7 @@ import { toast } from "sonner"
 import { bookingApi } from "@/lib/api"
 
 export function NewBookingModal({ onSuccess }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [date, setDate] = useState(new Date())
@@ -110,12 +113,12 @@ export function NewBookingModal({ onSuccess }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Calendar className="mr-2 h-4 w-4" />
-          New Booking
-        </Button>
+        <Button className="mt-4" onClick={() => router.push("/dashboard/workspaces")}>
+        <Plus className="mr-2 h-4 w-4" />
+        New Booking
+      </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[525px]">
+      {/* <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Create New Booking</DialogTitle>
           <DialogDescription>Book a workspace for your meeting or individual work.</DialogDescription>
@@ -248,7 +251,7 @@ export function NewBookingModal({ onSuccess }) {
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
+      </DialogContent> */}
     </Dialog>
   )
 }

@@ -235,7 +235,8 @@ export function DashboardSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Notifications">
+                <SidebarMenuButton asChild tooltip="Notifications"
+                onClick={() => router.push("/dashboard/notifications")}>
                   <div className="relative">
                     <Bell className="h-4 w-4" />
                     <span>Notifications</span>

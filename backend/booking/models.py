@@ -2,6 +2,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -91,35 +92,48 @@ class Booking(models.Model):
         return f"Booking for {space_name} by {self.user.email}"
     
     def clean(self):
+        """Custom validation for bookings"""
         # Skip validation if the booking is being cancelled
         if self.status == 'cancelled':
             return
             
-        # Check if the desk or meeting room is already booked for the given time
-        if self.desk:
-            overlapping_bookings = Booking.objects.filter(
-                desk=self.desk,
-                start_time__lt=self.end_time,
-                end_time__gt=self.start_time,
-                status='confirmed'
-            ).exclude(pk=self.pk)
-            
-            if overlapping_bookings.exists():
-                raise ValidationError("This space is already booked for the selected time range.")
-                
-        elif self.meeting_room:
-            overlapping_bookings = Booking.objects.filter(
-                meeting_room=self.meeting_room,
-                start_time__lt=self.end_time,
-                end_time__gt=self.start_time,
-                status='confirmed'
-            ).exclude(pk=self.pk)
-            
-            if overlapping_bookings.exists():
-                raise ValidationError("This space is already booked for the selected time range.")
+        # Check for overlapping bookings
+        overlapping_bookings = Booking.objects.filter(
+            Q(desk=self.desk) | Q(meeting_room=self.meeting_room),
+            ~Q(status='cancelled'),  # Exclude cancelled bookings
+            start_time__lt=self.end_time,
+            end_time__gt=self.start_time
+        )
+        
+        # Exclude self when updating
+        if self.pk:
+            overlapping_bookings = overlapping_bookings.exclude(pk=self.pk)
+        
+        if overlapping_bookings.exists():
+            raise ValidationError("This space is already booked for the selected time range.")
     
     def save(self, *args, **kwargs):
         # Only run validation if this is a new booking or status is not cancelled
         if not self.pk or self.status != 'cancelled':
             self.clean()  # Run the custom validation before saving the booking
         super().save(*args, **kwargs)
+class Notification(models.Model):
+    TYPE_CHOICES = (
+        ('booking_confirmation', 'Booking Confirmation'),
+        ('booking_reminder', 'Booking Reminder'),
+        ('booking_cancellation', 'Booking Cancellation'),
+        ('booking_conflict', 'Booking Conflict'),
+        ('system_announcement', 'System Announcement'),
+        ('feature_announcement', 'Feature Announcement'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='booking_notifications')  # Updated related_name
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=100)
+    message = models.TextField()
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='notifications', null=True, blank=True)
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.type} for {self.user.email}"

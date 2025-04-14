@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'booking',
     'email_notifications',
     'corsheaders',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -216,6 +217,7 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True 
 
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

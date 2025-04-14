@@ -41,8 +41,8 @@ def send_email_in_thread(recipients, subject, template_name, context):
     
     return {"success": True, "message": "Email sending started in background thread"}
 
-@shared_task
-def send_booking_email(recipients, subject, template_name, context):
+@shared_task(bind=True, max_retries=3)
+def send_booking_email(self, recipients, subject, template_name, context):
     """
     Send an email notification for a booking.
     
@@ -74,8 +74,13 @@ def send_booking_email(recipients, subject, template_name, context):
             )
     except Exception as e:
         logger.error(f"Failed to send email: {str(e)}")
-        # Don't raise the exception, just log it
-        return {"success": False, "error": str(e)}
+        # Retry the task
+        try:
+            self.retry(countdown=60 * 5, exc=e)  # Retry after 5 minutes
+        except Exception as retry_error:
+            logger.error(f"Failed to retry email task: {str(retry_error)}")
+            # As a last resort, try to send the email in a thread
+            return send_email_in_thread(recipients, subject, template_name, context)
 
 def send_mailgun_email(recipients, subject, text_content, html_content):
     """

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking, Location, Feature
+from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking, Location, Feature, Notification
 
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -76,3 +76,9 @@ class BookingSerializer(serializers.ModelSerializer):
             validated_data['date'] = validated_data['start_time'].date()
         
         return super().create(validated_data)
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'user', 'type', 'title', 'message', 'booking', 'read', 'created_at']
+        read_only_fields = ['created_at']

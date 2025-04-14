@@ -4,13 +4,16 @@ from django.shortcuts import render
 from rest_framework import viewsets, generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking
-from .serializers import WorkSpaceSerializer, HubSerializer, DeskSerializer, MeetingRoomSerializer, BookingSerializer
+from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking, Notification
+from .serializers import WorkSpaceSerializer, HubSerializer, DeskSerializer, MeetingRoomSerializer, BookingSerializer, NotificationSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from django.core.exceptions import ValidationError
 from datetime import datetime
 import logging
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 
 # Get a logger for this file
 logger = logging.getLogger(__name__)
@@ -159,38 +162,59 @@ class BookingCreateView(generics.CreateAPIView):
         try:
             booking = self.perform_create(serializer)
             
-            # Try to send email notification, but don't fail if it doesn't work
+            # Create a notification for the user
             try:
-                if 'attendees' in request.data and request.data['attendees']:
-                    recipients = request.data['attendees']
+                notification = Notification.objects.create(
+                    user=request.user,
+                    type='booking_confirmation',
+                    title='Booking Confirmed',
+                    message=f"Your booking for {booking.work_space.name} on {booking.date} from {booking.start_time.strftime('%H:%M')} to {booking.end_time.strftime('%H:%M')} has been confirmed.",
+                    booking=booking
+                )
+                logger.info(f"Booking notification created for user {request.user.id}")
+            except Exception as notif_error:
+                logger.error(f"Error creating notification: {str(notif_error)}")
+        
+            # Send email notification
+            try:
+                if hasattr(booking, 'attendees') and booking.attendees:
+                    recipients = booking.attendees
                     # Add the user's email if available
                     if request.user.email and request.user.email not in recipients:
                         recipients.append(request.user.email)
-                        
-                    # Import here to avoid circular imports
-                    from email_notifications.tasks import send_booking_email
                     
-                    # Send email asynchronously
+                    # Prepare context for email template
                     context = {
-                        'booking': serializer.data,
+                        'booking': {
+                            'id': booking.id,
+                            'title': booking.title,
+                            'workspace_name': booking.work_space.name,
+                            'date': booking.date.strftime('%Y-%m-%d'),
+                            'start_time': booking.start_time.strftime('%H:%M'),
+                            'end_time': booking.end_time.strftime('%H:%M'),
+                            'attendees': booking.attendees,
+                            'notes': booking.notes
+                        },
                         'user': request.user.get_full_name() or request.user.email,
                     }
                     
-                    # Try to send email, but don't fail if it doesn't work
+                    # Use the email sending task
+                    from email_notifications.tasks import send_booking_email, send_email_in_thread
+                    
                     try:
-                        send_booking_email.delay(
-                            recipients=recipients,
-                            subject="Your Booking Confirmation",
-                            template_name="booking_confirmation",
-                            context=context
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to send email notification: {str(e)}")
-                        # Continue without sending email
+                        # Try Celery first
+                        send_booking_email.delay(recipients, "Your Booking Confirmation", "booking_confirmation", context)
+                        logger.info(f"Booking confirmation email queued with Celery for {recipients}")
+                    except Exception as celery_error:
+                        # Fall back to thread-based email
+                        logger.warning(f"Celery task failed, using thread-based email: {str(celery_error)}")
+                        send_email_in_thread(recipients, "Your Booking Confirmation", "booking_confirmation", context)
+                        logger.info(f"Booking confirmation email sent via thread for {recipients}")
+                    
             except Exception as email_error:
-                logger.error(f"Error preparing email: {str(email_error)}")
-                # Continue without sending email
-            
+                logger.error(f"Error sending booking confirmation email: {str(email_error)}")
+                # Continue without sending email - don't break the booking process
+        
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -211,16 +235,16 @@ class BookingCancelView(APIView):
     
     def post(self, request, pk):
         booking = get_object_or_404(Booking, id=pk)
-        
+    
         # Check if the user is the owner of the booking
         if booking.user != request.user:
             return Response({"error": "You don't have permission to cancel this booking"}, 
                             status=status.HTTP_403_FORBIDDEN)
-        
+    
         # Update booking status
         booking.status = "cancelled"
         booking.save()
-        
+    
         # Update workspace availability
         if booking.desk:
             booking.desk.is_available = True
@@ -228,7 +252,7 @@ class BookingCancelView(APIView):
         elif booking.meeting_room:
             booking.meeting_room.is_available = True
             booking.meeting_room.save()
-        
+    
         # Try to send cancellation email
         try:
             if hasattr(booking, 'attendees') and booking.attendees:
@@ -236,31 +260,30 @@ class BookingCancelView(APIView):
                 # Add the user's email if available
                 if request.user.email and request.user.email not in recipients:
                     recipients.append(request.user.email)
-                    
-                # Import here to avoid circular imports
-                from email_notifications.tasks import send_booking_email
                 
-                # Send email asynchronously
+                # Render the HTML content from the template
                 context = {
                     'booking': BookingSerializer(booking).data,
                     'user': request.user.get_full_name() or request.user.email,
                 }
-                
-                # Try to send email, but don't fail if it doesn't work
-                try:
-                    send_booking_email.delay(
-                        recipients=recipients,
-                        subject="Your Booking Has Been Cancelled",
-                        template_name="booking_cancellation",
-                        context=context
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to send cancellation email: {str(e)}")
-                    # Continue without sending email
+                html_content = render_to_string(f'email/booking_cancellation.html', context)
+                text_content = render_to_string(f'email/booking_cancellation.txt', context)
+            
+                # Send email using Django's send_mail
+                from_email = settings.DEFAULT_FROM_EMAIL
+                send_mail(
+                    subject="Your Booking Has Been Cancelled",
+                    message=text_content,
+                    from_email=from_email,
+                    recipient_list=recipients,
+                    html_message=html_content,
+                    fail_silently=False,
+                )
+                logger.info(f"Cancellation email sent to {recipients}")
         except Exception as email_error:
-            logger.error(f"Error preparing cancellation email: {str(email_error)}")
+            logger.error(f"Error sending cancellation email: {str(email_error)}")
             # Continue without sending email
-    
+
         return Response({"status": "cancelled"}, status=status.HTTP_200_OK)
 
 # Check Availability View
@@ -322,3 +345,37 @@ class CheckAvailabilityView(APIView):
             "workspace": WorkSpaceSerializer(workspace).data,
             "overlappingBookings": booking_serializer.data
         })
+
+# Add the missing notification views
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Get all notifications for the current user
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+
+class NotificationCreateView(generics.CreateAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        # Set the user to the current user
+        serializer.save(user=self.request.user)
+
+class NotificationMarkAsReadView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, pk):
+        notification = get_object_or_404(Notification, id=pk)
+        
+        # Check if the user is the owner of the notification
+        if notification.user != request.user:
+            return Response({"error": "You don't have permission to mark this notification as read"}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        
+        # Mark as read
+        notification.read = True
+        notification.save()
+        
+        return Response({"status": "marked as read"}, status=status.HTTP_200_OK)
