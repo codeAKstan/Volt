@@ -2,8 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .tasks import send_booking_email
 import logging
+from .tasks import send_booking_email, send_email_in_thread
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +48,16 @@ class SendEmailView(APIView):
                 'email': request.user.email
             }
             
-            # Send the email asynchronously using Celery
-            send_booking_email.delay(recipients, subject, template, context)
+            # Try to send the email asynchronously using Celery
+            try:
+                send_booking_email.delay(recipients, subject, template, context)
+                return Response({"success": True, "message": "Email scheduled for delivery via Celery"})
+            except Exception as celery_error:
+                logger.warning(f"Celery task failed, falling back to thread-based email: {str(celery_error)}")
+                # Fall back to thread-based email
+                send_email_in_thread(recipients, subject, template, context)
+                return Response({"success": True, "message": "Email scheduled for delivery via thread"})
             
-            return Response({"success": True, "message": "Email scheduled for delivery"})
-        
         except Exception as e:
             logger.error(f"Error scheduling email: {str(e)}")
             return Response(

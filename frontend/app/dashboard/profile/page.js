@@ -190,6 +190,17 @@ export default function ProfilePage() {
     )
   }
 
+  // Helper function to safely format dates
+  const formatDate = (dateString) => {
+    try {
+      if (!dateString) return "N/A"
+      return format(new Date(dateString), "PPP")
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString)
+      return "Invalid date"
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
@@ -631,20 +642,17 @@ export default function ProfilePage() {
                     {bookingHistory.map((booking) => (
                       <div key={booking.id} className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-3">
                         <div className="col-span-1">
-                          <div className="font-medium">{booking.workspace?.name || "Workspace"}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {format(new Date(booking.startTime), "PPP")}
-                          </div>
+                          <div className="font-medium">{booking.workspaceName || "Workspace"}</div>
+                          <div className="text-sm text-muted-foreground">{formatDate(booking.date)}</div>
                         </div>
                         <div className="col-span-1">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            {format(new Date(booking.startTime), "h:mm a")} -{" "}
-                            {format(new Date(booking.endTime), "h:mm a")}
+                            {booking.startTime} - {booking.endTime}
                           </div>
                         </div>
                         <div className="col-span-1 flex items-center justify-end">
-                          <Badge variant="secondary">Confirmed</Badge>
+                          <Badge variant="secondary">{booking.status || "Confirmed"}</Badge>
                         </div>
                       </div>
                     ))}

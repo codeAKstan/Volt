@@ -10,7 +10,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from django.core.exceptions import ValidationError
 from datetime import datetime
+import logging
 
+# Get a logger for this file
+logger = logging.getLogger(__name__)
 
 # WorkSpace ViewSet (for both hubs and meeting rooms)
 class WorkSpaceViewSet(viewsets.ModelViewSet):
@@ -27,8 +30,6 @@ class WorkSpaceViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-   
-
 # Hub ViewSet (for desks inside a workspace)
 class HubViewSet(viewsets.ModelViewSet):
     queryset = Hub.objects.all()
@@ -38,14 +39,12 @@ class HubViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Create the hub, making sure it's linked to a workspace
         serializer.save()
-
     
     def list(self, request, *args, **kwargs):
         workspace_id = self.kwargs.get('workspace_id')
         hubs = Hub.objects.filter(workspace_id=workspace_id)
         serializer = HubSerializer(hubs, many=True)
         return Response(serializer.data)
-
 
 # Desk ViewSet (for desks within a hub)
 class DeskViewSet(viewsets.ModelViewSet):
@@ -64,7 +63,6 @@ class DeskViewSet(viewsets.ModelViewSet):
         serializer = DeskSerializer(desks, many=True)
         return Response(serializer.data)
 
-
 # MeetingRoom ViewSet (for meeting rooms within a workspace)
 class MeetingRoomViewSet(viewsets.ModelViewSet):
     queryset = MeetingRoom.objects.all()
@@ -81,7 +79,6 @@ class MeetingRoomViewSet(viewsets.ModelViewSet):
         serializer = MeetingRoomSerializer(rooms, many=True)
         return Response(serializer.data)
 
-
 # Booking Create View (to create bookings for desks or meeting rooms)
 class BookingCreateView(generics.CreateAPIView):
     queryset = Booking.objects.all()
@@ -95,6 +92,9 @@ class BookingCreateView(generics.CreateAPIView):
         start_time = self.request.data.get('start_time')
         end_time = self.request.data.get('end_time')
         work_space_id = self.request.data.get('work_space')  # Get the workspace ID
+        title = self.request.data.get('title', 'Untitled Booking')
+        attendees = self.request.data.get('attendees', [])
+        notes = self.request.data.get('notes', '')
 
         # Make sure we have a workspace
         if not work_space_id:
@@ -109,14 +109,18 @@ class BookingCreateView(generics.CreateAPIView):
             if not desk_instance.is_available:
                 raise ValidationError("This desk is already booked for the selected time.")
             # If desk is available, create the booking
-            serializer.save(
+            booking = serializer.save(
                 user=self.request.user, 
                 desk=desk_instance,
-                work_space=work_space  # Include the workspace here
+                work_space=work_space,  # Include the workspace here
+                title=title,
+                attendees=attendees,
+                notes=notes
             )
             # After booking, mark the desk as unavailable
             desk_instance.is_available = False
             desk_instance.save()
+            return booking
 
         # If booking a meeting room
         elif meeting_room_id:
@@ -125,28 +129,71 @@ class BookingCreateView(generics.CreateAPIView):
             if not meeting_room_instance.is_available:
                 raise ValidationError("This meeting room is already booked for the selected time.")
             # If meeting room is available, create the booking
-            serializer.save(
+            booking = serializer.save(
                 user=self.request.user, 
                 meeting_room=meeting_room_instance,
-                work_space=work_space  # Include the workspace here
+                work_space=work_space,  # Include the workspace here
+                title=title,
+                attendees=attendees,
+                notes=notes
             )
             # After booking, mark the meeting room as unavailable
             meeting_room_instance.is_available = False
             meeting_room_instance.save()
+            return booking
         else:
-            raise ValidationError("Either desk or meeting room must be provided.")
+            # If neither desk nor meeting room is specified, just create a booking for the workspace
+            booking = serializer.save(
+                user=self.request.user,
+                work_space=work_space,
+                title=title,
+                attendees=attendees,
+                notes=notes
+            )
+            return booking
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
-            self.perform_create(serializer)
+            booking = self.perform_create(serializer)
+            
+            # Try to send email notification, but don't fail if it doesn't work
+            try:
+                if 'attendees' in request.data and request.data['attendees']:
+                    recipients = request.data['attendees']
+                    # Add the user's email if available
+                    if request.user.email and request.user.email not in recipients:
+                        recipients.append(request.user.email)
+                        
+                    # Import here to avoid circular imports
+                    from email_notifications.tasks import send_booking_email
+                    
+                    # Send email asynchronously
+                    context = {
+                        'booking': serializer.data,
+                        'user': request.user.get_full_name() or request.user.email,
+                    }
+                    
+                    # Try to send email, but don't fail if it doesn't work
+                    try:
+                        send_booking_email.delay(
+                            recipients=recipients,
+                            subject="Your Booking Confirmation",
+                            template_name="booking_confirmation",
+                            context=context
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send email notification: {str(e)}")
+                        # Continue without sending email
+            except Exception as email_error:
+                logger.error(f"Error preparing email: {str(email_error)}")
+                # Continue without sending email
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 # Booking List View (to list all bookings for a user)
 class BookingListView(generics.ListAPIView):
@@ -157,7 +204,6 @@ class BookingListView(generics.ListAPIView):
     def get_queryset(self):
         # Get all bookings for the current user
         return Booking.objects.filter(user=self.request.user)
-
 
 # Booking Cancel View (to cancel a booking)
 class BookingCancelView(APIView):
@@ -183,8 +229,39 @@ class BookingCancelView(APIView):
             booking.meeting_room.is_available = True
             booking.meeting_room.save()
         
+        # Try to send cancellation email
+        try:
+            if hasattr(booking, 'attendees') and booking.attendees:
+                recipients = booking.attendees
+                # Add the user's email if available
+                if request.user.email and request.user.email not in recipients:
+                    recipients.append(request.user.email)
+                    
+                # Import here to avoid circular imports
+                from email_notifications.tasks import send_booking_email
+                
+                # Send email asynchronously
+                context = {
+                    'booking': BookingSerializer(booking).data,
+                    'user': request.user.get_full_name() or request.user.email,
+                }
+                
+                # Try to send email, but don't fail if it doesn't work
+                try:
+                    send_booking_email.delay(
+                        recipients=recipients,
+                        subject="Your Booking Has Been Cancelled",
+                        template_name="booking_cancellation",
+                        context=context
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send cancellation email: {str(e)}")
+                    # Continue without sending email
+        except Exception as email_error:
+            logger.error(f"Error preparing cancellation email: {str(email_error)}")
+            # Continue without sending email
+    
         return Response({"status": "cancelled"}, status=status.HTTP_200_OK)
-
 
 # Check Availability View
 class CheckAvailabilityView(APIView):

@@ -1,75 +1,78 @@
 from rest_framework import serializers
-from .models import Location, WorkSpace, Hub, Desk, MeetingRoom, Booking
-from django.contrib.auth.models import User
+from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking, Location, Feature
 
-# Location Serializer
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
-        fields = ['id', 'name', 'address', 'city', 'state']
+        fields = ['id', 'name', 'address']
 
-
-# Desk Serializer
-class DeskSerializer(serializers.ModelSerializer):
+class FeatureSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Desk
-        fields = ['id', 'name', 'is_available', 'hub']
+        model = Feature
+        fields = ['id', 'name', 'description']
 
-    # Optionally, you can include workspace name or other details
-    hub = serializers.StringRelatedField()
-
-
-# MeetingRoom Serializer
-class MeetingRoomSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MeetingRoom
-        fields = ['id', 'name', 'location', 'capacity']
-
-    location = LocationSerializer()  # Nested Location serializer
-
-
-# Hub Serializer (Hubs contain multiple desks)
-class HubSerializer(serializers.ModelSerializer):
-    desks = DeskSerializer(many=True)  # Nested serializer for all desks in the hub
-
-    class Meta:
-        model = Hub
-        fields = ['id', 'name', 'location', 'capacity', 'desks']
-
-    location = LocationSerializer()  # Nested Location serializer
-
-
-# WorkSpace Serializer (It can be either a desk or meeting room type)
 class WorkSpaceSerializer(serializers.ModelSerializer):
-    hubs = HubSerializer(many=True, read_only=True)  # Nested hubs if the workspace type is a hub
-    meeting_rooms = MeetingRoomSerializer(many=True, read_only=True)  # Nested meeting rooms
-
+    location = LocationSerializer(read_only=True)
+    features = FeatureSerializer(many=True, read_only=True)
+    
     class Meta:
         model = WorkSpace
-        fields = ['id', 'name', 'location', 'description', 'capacity', 'type', 'is_available', 'hubs', 'meeting_rooms']
+        fields = ['id', 'name', 'type', 'description', 'location', 'capacity', 
+                  'is_available', 'features', 'hourly_rate']
+        
+    def create(self, validated_data):
+        # Extract location and features data
+        location_name = self.context['request'].data.get('location')
+        features_data = self.context['request'].data.get('amenities', [])
+        
+        # Create or get location
+        if location_name:
+            location, created = Location.objects.get_or_create(name=location_name)
+            validated_data['location'] = location
+        
+        # Create workspace
+        workspace = WorkSpace.objects.create(**validated_data)
+        
+        # Add features
+        for feature_name in features_data:
+            feature, created = Feature.objects.get_or_create(name=feature_name)
+            workspace.features.add(feature)
+        
+        return workspace
 
-    location = LocationSerializer()  # Nested Location serializer
+class HubSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Hub
+        fields = ['id', 'name', 'workspace', 'capacity']
 
+class DeskSerializer(serializers.ModelSerializer):
+    hub_name = serializers.CharField(source='hub.name', read_only=True)
+    
+    class Meta:
+        model = Desk
+        fields = ['id', 'name', 'hub', 'hub_name', 'is_available']
 
-# Booking Serializer
+class MeetingRoomSerializer(serializers.ModelSerializer):
+    workspace_name = serializers.CharField(source='workspace.name', read_only=True)
+    
+    class Meta:
+        model = MeetingRoom
+        fields = ['id', 'name', 'workspace', 'workspace_name', 'capacity', 'is_available']
+
 class BookingSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField()  # To show the user as a string (you can change this if needed)
-    desk = DeskSerializer(read_only=True)  # When booking a desk, return desk details
-    meeting_room = MeetingRoomSerializer(read_only=True)  # When booking a meeting room, return meeting room details
-
+    workspace_name = serializers.CharField(source='work_space.name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    
     class Meta:
         model = Booking
-        fields = ['id', 'user', 'booking_date', 'status', 'start_time', 'end_time', 'desk', 'meeting_room']
-
+        fields = ['id', 'user', 'user_email', 'work_space', 'workspace_name', 'desk', 'meeting_room', 
+                  'title', 'date', 'start_time', 'end_time', 'status', 'booking_date', 
+                  'attendees', 'notes']
+        read_only_fields = ['user', 'booking_date']
+    
     def create(self, validated_data):
-        # Override create method to handle bookings more explicitly
-        desk_data = validated_data.pop('desk', None)
-        meeting_room_data = validated_data.pop('meeting_room', None)
-        
-        # Create a booking based on desk or meeting room
-        if desk_data:
-            validated_data['desk'] = desk_data
-        elif meeting_room_data:
-            validated_data['meeting_room'] = meeting_room_data
+        # Make sure we have a date field
+        if 'start_time' in validated_data and 'date' not in validated_data:
+            validated_data['date'] = validated_data['start_time'].date()
         
         return super().create(validated_data)
