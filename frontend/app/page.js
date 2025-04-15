@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import {
@@ -28,11 +28,14 @@ import { Testimonials } from "@/components/landing/testimonials"
 import { StatsSection } from "@/components/landing/stats-section"
 import { FaqSection } from "@/components/landing/faq-section"
 import { HeroTypewriter } from "@/components/ui/hero-typewriter"
+import { workspaceApi } from "@/lib/api-client"
 
 export default function Home() {
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [availableSpaces, setAvailableSpaces] = useState(0) // Add availableSpaces state
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -40,6 +43,25 @@ export default function Home() {
     }
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Fetch available workspaces count
+  useEffect(() => {
+    const fetchAvailableSpaces = async () => {
+      try {
+        const workspaces = await workspaceApi.getAll()
+        const availableCount = workspaces.filter((w) => w.available).length
+        setAvailableSpaces(availableCount)
+      } catch (error) {
+        console.error("Error fetching available spaces:", error)
+        // Default to 0 if there's an error
+        setAvailableSpaces(0)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAvailableSpaces()
   }, [])
 
   const container = {
@@ -254,7 +276,7 @@ export default function Home() {
                 >
                   <div className="bg-gradient-to-r from-primary/20 to-purple-400/10 rounded-2xl p-6 shadow-xl">
                     <img
-                      src="/placeholder.svg?height=400&width=600"
+                      src="/lp.png?height=400&width=600"
                       alt="Volt Dashboard Preview"
                       className="rounded-lg shadow-lg"
                     />
@@ -278,7 +300,7 @@ export default function Home() {
                     >
                       <div className="flex items-center space-x-2 text-sm font-medium">
                         <div className="w-3 h-3 bg-green-500 rounded-full pulse"></div>
-                        <span>12 Available Spaces</span>
+                        <span>{loading ? "Loading..." : `${availableSpaces} Available Spaces`}</span>
                       </div>
                     </motion.div>
                   </div>

@@ -23,8 +23,13 @@ export function BookingCard({ booking, onCancel, onReschedule, isPast = false, i
   const [cancelling, setCancelling] = useState(false)
 
   const formatDate = (dateString) => {
-    const options = { weekday: "short", month: "short", day: "numeric" }
-    return format(parseISO(dateString), "EEE, MMM d")
+    try {
+      const options = { weekday: "short", month: "short", day: "numeric" }
+      return format(parseISO(dateString), "EEE, MMM d")
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString)
+      return dateString || "Unknown date"
+    }
   }
 
   const getStatusBadge = () => {
@@ -48,12 +53,24 @@ export function BookingCard({ booking, onCancel, onReschedule, isPast = false, i
     }
   }
 
+  // Ensure we have a valid workspace name
+  let workspaceName = "Unknown Workspace" // Default value
+  if (booking.workspaceName) {
+    workspaceName = booking.workspaceName
+  } else if (booking.work_space) {
+    workspaceName = booking.work_space.name
+  } else if (booking.desk) {
+    workspaceName = booking.desk.name
+  } else if (booking.meeting_room) {
+    workspaceName = booking.meeting_room.name
+  }
+
   return (
     <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
       <Card className={`overflow-hidden h-full flex flex-col ${isToday ? "border-primary" : ""}`}>
         <CardHeader className="pb-2">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-lg">{booking.title}</CardTitle>
+            <CardTitle className="text-lg">{booking.title || "Untitled Booking"}</CardTitle>
             <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }}>
               {getStatusBadge()}
             </motion.div>
@@ -68,7 +85,7 @@ export function BookingCard({ booking, onCancel, onReschedule, isPast = false, i
               className="flex items-center text-muted-foreground"
             >
               <Badge variant="secondary" className="mr-2">
-                {booking.workspaceName}
+                {workspaceName}
               </Badge>
             </motion.div>
             <motion.div
@@ -78,7 +95,7 @@ export function BookingCard({ booking, onCancel, onReschedule, isPast = false, i
               className="flex items-center text-muted-foreground"
             >
               <Calendar className="mr-2 h-4 w-4" />
-              <span>{formatDate(booking.date)}</span>
+              <span>{booking.date ? formatDate(booking.date) : "Unknown date"}</span>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, x: -10 }}
@@ -88,7 +105,7 @@ export function BookingCard({ booking, onCancel, onReschedule, isPast = false, i
             >
               <Clock className="mr-2 h-4 w-4" />
               <span>
-                {booking.startTime} - {booking.endTime}
+                {booking.startTime || "00:00"} - {booking.endTime || "00:00"}
               </span>
             </motion.div>
             <motion.div

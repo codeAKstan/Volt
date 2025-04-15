@@ -29,7 +29,7 @@ class SignupSerializer(serializers.ModelSerializer):
         fields = [
             'first_name', 'last_name', 'email',
             'password', 'password2', 'role',
-            'phone_number', 'organization'
+            'phone_number'
         ]
         extra_kwargs = {
             'first_name': {'required': True},
@@ -81,3 +81,44 @@ class LoginSerializer(serializers.Serializer):
             }
         else:
             raise serializers.ValidationError({'error': 'Must include "email" and "password"'})
+
+# Add UserSerializer for the profile endpoint
+class UserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    firstName = serializers.CharField(source='first_name', required=False)
+    lastName = serializers.CharField(source='last_name', required=False)
+    phoneNumber = serializers.CharField(source='phone_number', required=False, allow_blank=True, allow_null=True)
+    jobTitle = serializers.CharField(source='job_title', required=False, allow_blank=True, allow_null=True)
+    profileImage = serializers.ImageField(source='profile_image', required=False, allow_null=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'firstName', 'lastName', 
+            'name', 'role', 'phone_number', 'phoneNumber', 'job_title', 'jobTitle',
+            'department', 'profile_image', 'profileImage'
+        ]
+        read_only_fields = ['id', 'email', 'role']
+    
+    def get_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"
+        
+    def update(self, instance, validated_data):
+        # Handle nested source fields
+        if 'first_name' in validated_data:
+            instance.first_name = validated_data.pop('first_name')
+        if 'last_name' in validated_data:
+            instance.last_name = validated_data.pop('last_name')
+        if 'phone_number' in validated_data:
+            instance.phone_number = validated_data.pop('phone_number')
+        if 'job_title' in validated_data:
+            instance.job_title = validated_data.pop('job_title')
+        if 'profile_image' in validated_data:
+            instance.profile_image = validated_data.pop('profile_image')
+            
+        # Update remaining fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+            
+        instance.save()
+        return instance

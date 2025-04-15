@@ -4,10 +4,10 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'role', 'organization', 'is_staff', 'is_active')
+    list_display = ('email', 'first_name', 'last_name', 'role', 'is_staff', 'is_active')
     
     list_filter = ('role', 'is_staff', 'is_active', 'is_superuser')
-    search_fields = ('email', 'first_name', 'last_name', 'organization', 'phone_number')
+    search_fields = ('email', 'first_name', 'last_name', 'phone_number')
    
     ordering = ('email',)
     

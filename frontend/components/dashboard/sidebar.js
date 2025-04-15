@@ -37,10 +37,15 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
   SidebarRail,
   SidebarSeparator,
+  SidebarProvider,
 } from "@/components/ui/sidebar"
+
+// Export the wrapper component
+export function DashboardSidebarWrapper({ children }) {
+  return <SidebarProvider>{children}</SidebarProvider>
+}
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -81,79 +86,80 @@ export function DashboardSidebar() {
       title: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Workspaces",
       href: "/dashboard/workspaces",
       icon: Building,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Bookings",
       href: "/dashboard/bookings",
       icon: Calendar,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Workspace Calendar",
       href: "/dashboard/workspace-calendar",
       icon: Clock,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Availability",
       href: "/dashboard/availability",
       icon: Clock,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Chat",
       href: "/dashboard/chat",
       icon: MessageSquare,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Video Conference",
       href: "/dashboard/video-conference",
       icon: Video,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Analytics",
       href: "/dashboard/analytics",
       icon: BarChart3,
-      roles: ["admin"],
+      roles: ["ADMIN", "admin"],
     },
     {
       title: "Integrations",
       href: "/dashboard/integrations",
       icon: Plug,
-      roles: ["admin", "employee"],
+      roles: ["ADMIN", "EMPLOYEE", "admin", "employee"],
     },
     {
       title: "Pricing",
       href: "/dashboard/pricing",
       icon: CreditCard,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Profile",
       href: "/dashboard/profile",
       icon: User,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
     {
       title: "Settings",
       href: "/dashboard/settings",
       icon: Settings,
-      roles: ["admin", "employee", "learner"],
+      roles: ["ADMIN", "EMPLOYEE", "LEARNER", "admin", "employee", "learner"],
     },
   ]
 
   // Filter navigation items based on user role
+  // Default to showing all items if user role is not available
   const filteredNavItems = navItems.filter((item) => {
-    if (!user) return false
+    if (!user || !user.role) return true
     return item.roles.includes(user.role)
   })
 
@@ -163,7 +169,7 @@ export function DashboardSidebar() {
   )
 
   return (
-    <Sidebar variant="floating" collapsible="icon">
+    <Sidebar>
       <SidebarHeader>
         <div className="flex items-center px-4 py-2">
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -192,16 +198,20 @@ export function DashboardSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {searchedNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.title}>
-                    <Link href={item.href}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {searchedNavItems.length > 0 ? (
+                searchedNavItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={pathname === item.href}>
+                      <Link href={item.href}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))
+              ) : (
+                <div className="px-4 py-2 text-sm text-muted-foreground">No navigation items found</div>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -225,7 +235,8 @@ export function DashboardSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Notifications">
+                <SidebarMenuButton asChild tooltip="Notifications"
+                onClick={() => router.push("/dashboard/notifications")}>
                   <div className="relative">
                     <Bell className="h-4 w-4" />
                     <span>Notifications</span>
@@ -249,7 +260,7 @@ export function DashboardSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Your Profile">
+            <SidebarMenuButton asChild>
               <Link href="/dashboard/profile" className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
                   <AvatarImage src="/placeholder.svg" alt={user?.firstName} />
@@ -260,7 +271,7 @@ export function DashboardSidebar() {
                 </Avatar>
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">
-                    {user?.firstName} {user?.lastName}
+                    {user?.firstName || user?.first_name} {user?.lastName || user?.last_name}
                   </span>
                   <span className="text-xs text-muted-foreground capitalize">{user?.role || "User"}</span>
                 </div>
@@ -270,7 +281,6 @@ export function DashboardSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              tooltip="Log Out"
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <LogOut className="h-4 w-4" />
@@ -283,8 +293,4 @@ export function DashboardSidebar() {
       <SidebarRail />
     </Sidebar>
   )
-}
-
-export function DashboardSidebarWrapper({ children }) {
-  return <SidebarProvider defaultOpen={true}>{children}</SidebarProvider>
 }

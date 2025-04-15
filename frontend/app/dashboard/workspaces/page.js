@@ -1,106 +1,47 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Filter, Search } from "lucide-react"
+import { Filter, Search, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { WorkspaceCard } from "@/components/dashboard/workspace-card"
 import { AddWorkspaceModal } from "@/components/dashboard/add-workspace-modal"
-
-// Mock data for workspaces
-const initialMockWorkspaces = [
-  {
-    id: 1,
-    name: "Desk 101",
-    type: "desk",
-    location: "East Wing",
-    amenities: ["Standing desk", "Dual monitors"],
-    available: true,
-  },
-  {
-    id: 2,
-    name: "Meeting Room A",
-    type: "meeting",
-    location: "North Wing",
-    amenities: ["Projector", "Whiteboard", "Video conferencing"],
-    available: true,
-    capacity: 8,
-  },
-  {
-    id: 3,
-    name: "Phone Booth 3",
-    type: "phone",
-    location: "West Wing",
-    amenities: ["Soundproof", "Video call setup"],
-    available: false,
-    capacity: 1,
-  },
-  {
-    id: 4,
-    name: "Event Hall",
-    type: "event",
-    location: "South Wing",
-    amenities: ["Stage", "Sound system", "Projector"],
-    available: true,
-    capacity: 50,
-  },
-  {
-    id: 5,
-    name: "Desk 102",
-    type: "desk",
-    location: "East Wing",
-    amenities: ["Standing desk", "Single monitor", "Ergonomic chair"],
-    available: true,
-  },
-  {
-    id: 6,
-    name: "Conference Room B",
-    type: "conference",
-    location: "North Wing",
-    amenities: ["Large display", "Video conferencing", "Whiteboard"],
-    available: true,
-    capacity: 12,
-  },
-  {
-    id: 7,
-    name: "Quiet Zone Desk 5",
-    type: "desk",
-    location: "West Wing",
-    amenities: ["Noise cancellation", "Privacy screen", "Ergonomic chair"],
-    available: true,
-  },
-  {
-    id: 8,
-    name: "Collaboration Space",
-    type: "collaboration",
-    location: "Central Area",
-    amenities: ["Whiteboards", "Flexible seating", "Projector"],
-    available: true,
-    capacity: 15,
-  },
-  {
-    id: 9,
-    name: "Phone Booth 1",
-    type: "phone",
-    location: "East Wing",
-    amenities: ["Soundproof", "Video call setup"],
-    available: false,
-    capacity: 1,
-  },
-]
+import { workspaceApi } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export default function WorkspacesPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [workspaces, setWorkspaces] = useState([])
   const [searchQuery, setSearchQuery] = useState("")
   const [spaceType, setSpaceType] = useState("")
   const [location, setLocation] = useState("")
   const [activeTab, setActiveTab] = useState("all")
-  const [mockWorkspaces, setMockWorkspaces] = useState(initialMockWorkspaces)
+
+  // Fetch workspaces from the backend
+  useEffect(() => {
+    const fetchWorkspaces = async () => {
+      setLoading(true)
+      try {
+        const data = await workspaceApi.getAll()
+        setWorkspaces(data)
+      } catch (error) {
+        console.error("Error fetching workspaces:", error)
+        toast.error("Failed to load workspaces")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchWorkspaces()
+  }, [])
 
   // Filter workspaces based on search, type, location, and tab
-  const filteredWorkspaces = mockWorkspaces.filter((workspace) => {
+  const filteredWorkspaces = workspaces.filter((workspace) => {
     // Filter by tab (all/available)
     if (activeTab === "available" && !workspace.available) return false
 
@@ -127,7 +68,21 @@ export default function WorkspacesPage() {
   })
 
   // Get unique locations for filter
-  const locations = [...new Set(mockWorkspaces.map((w) => w.location))]
+  const locations = [...new Set(workspaces.map((w) => w.location))]
+
+  // Handle adding a new workspace
+  const handleWorkspaceAdded = (newWorkspace) => {
+    setWorkspaces((prev) => [...prev, newWorkspace])
+    toast.success("Workspace added successfully!")
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -136,12 +91,7 @@ export default function WorkspacesPage() {
           <h2 className="text-3xl font-bold tracking-tight">Workspaces</h2>
           <p className="text-muted-foreground">Browse and book available workspaces</p>
         </div>
-        <AddWorkspaceModal
-          onWorkspaceAdded={(newWorkspace) => {
-            // Add the new workspace to the list
-            setMockWorkspaces((prev) => [...prev, newWorkspace])
-          }}
-        />
+        <AddWorkspaceModal onWorkspaceAdded={handleWorkspaceAdded} />
       </div>
 
       <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-y-0 md:space-x-4">

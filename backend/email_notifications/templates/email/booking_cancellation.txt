@@ -1,0 +1,17 @@
+Booking Cancelled
+
+Hello,
+
+The following booking has been cancelled:
+
+Booking: {{ booking_title }}
+Workspace: {{ workspace_name }}
+Date: {{ date }}
+Time: {{ start_time }} - {{ end_time }}
+
+You can book another workspace from your dashboard.
+
+Thank you for using Volt Workspace Booking!
+
+© {{ current_year }} Volt Workspace. All rights reserved.
+This is an automated message, please do not reply to this email.

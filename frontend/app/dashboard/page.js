@@ -12,11 +12,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { WorkspaceCard } from "@/components/dashboard/workspace-card"
 import { Clock, Plus, Users, LayoutDashboard, Loader2, Calendar } from "lucide-react"
-import { bookingApi, workspaceApi } from "@/lib/api"
+import { bookingApi, workspaceApi } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [greeting, setGreeting] = useState("")
   const [loading, setLoading] = useState(true)
   const [bookings, setBookings] = useState([])
@@ -42,10 +43,12 @@ export default function DashboardPage() {
       try {
         // Fetch bookings
         let bookingsData = []
-        if (user?.role === "admin") {
-          bookingsData = await bookingApi.getAll()
-        } else {
-          bookingsData = await bookingApi.getByUser(user.id)
+        if (user) {
+          if (user.role === "ADMIN" || user.role === "admin") {
+            bookingsData = await bookingApi.getAll()
+          } else {
+            bookingsData = await bookingApi.getByUser(user.id)
+          }
         }
 
         // Fetch workspaces
@@ -72,6 +75,7 @@ export default function DashboardPage() {
         })
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
+        toast.error("Failed to load dashboard data")
       } finally {
         setLoading(false)
       }
@@ -105,12 +109,15 @@ export default function DashboardPage() {
       setBookings((prev) =>
         prev.map((booking) => (booking.id === bookingId ? { ...booking, status: "cancelled" } : booking)),
       )
+
+      toast.success("Booking cancelled successfully")
     } catch (error) {
       console.error("Error cancelling booking:", error)
+      toast.error("Failed to cancel booking")
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -123,9 +130,11 @@ export default function DashboardPage() {
       <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
-            {greeting}, {user?.firstName || "User"}!
+            {greeting}, {user?.first_name || user?.firstName || "User"}!
           </h2>
-          <p className="text-muted-foreground">Here's what's happening with your workspace today.</p>
+          <p className="text-muted-foreground">
+            Here's what's happening with your workspace today.
+          </p>
         </div>
         <div className="flex items-center space-x-2">
           <Button onClick={() => router.push("/dashboard/workspaces")}>

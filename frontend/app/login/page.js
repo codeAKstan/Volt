@@ -23,10 +23,15 @@ export default function LoginPage() {
     password: "",
     rememberMe: false,
   })
+  const [errors, setErrors] = useState({})
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    // Clear error when user types
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: null }))
+    }
   }
 
   const handleCheckboxChange = (checked) => {
@@ -36,15 +41,22 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    setErrors({})
 
     try {
-      // Actually use the login function from auth context
+      // Use the login function from auth context
       await login(formData.email, formData.password)
       toast.success("Login successful!")
       router.push("/dashboard")
     } catch (error) {
       console.error("Login error:", error)
-      toast.error("Invalid email or password. Please try again.")
+
+      // Handle validation errors
+      if (error.message.includes("credentials")) {
+        setErrors({ general: "Invalid email or password. Please try again." })
+      } else {
+        toast.error("Login failed. Please try again.")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -98,6 +110,12 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {errors.general && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+                {errors.general}
+              </div>
+            )}
+
             <motion.div
               className="space-y-2"
               initial={{ opacity: 0, y: 10 }}
@@ -116,8 +134,11 @@ export default function LoginPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                  errors.email ? "border-destructive" : ""
+                }`}
               />
+              {errors.email && <p className="text-destructive text-sm mt-1">{errors.email}</p>}
             </motion.div>
             <motion.div
               className="space-y-2"
@@ -142,8 +163,11 @@ export default function LoginPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                  errors.password ? "border-destructive" : ""
+                }`}
               />
+              {errors.password && <p className="text-destructive text-sm mt-1">{errors.password}</p>}
             </motion.div>
             <motion.div
               className="flex items-center space-x-2"
