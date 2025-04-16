@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -7,6 +7,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.views import APIView
+from booking.models import Booking
+from booking.serializers import BookingSerializer
 
 
 User = get_user_model()
@@ -122,3 +124,49 @@ class UserProfileView(APIView):
         # Print validation errors for debugging
         print("Validation errors:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserListView(generics.ListAPIView):
+    """
+    API endpoint that allows all users to be viewed by admins.
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        # Only allow admins to see all users
+        user = self.request.user
+        if user.role == 'ADMIN' or user.is_superuser:
+            return User.objects.all()
+        # Non-admins can only see themselves
+        return User.objects.filter(id=user.id)
+
+class UserDetailView(generics.RetrieveUpdateAPIView):
+    """
+    API endpoint that allows a specific user to be viewed or edited.
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        # Only allow admins to see any user
+        user = self.request.user
+        if user.role == 'ADMIN' or user.is_superuser:
+            return User.objects.all()
+        # Non-admins can only see themselves
+        return User.objects.filter(id=user.id)
+
+class UserBookingsView(generics.ListAPIView):
+    """
+    API endpoint that allows viewing all bookings for a specific user.
+    """
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user_id = self.kwargs.get('pk')
+        # Only allow admins to see other users' bookings
+        if self.request.user.role == 'ADMIN' or self.request.user.is_superuser or str(self.request.user.id) == user_id:
+            return Booking.objects.filter(user_id=user_id)
+        return Booking.objects.none()
