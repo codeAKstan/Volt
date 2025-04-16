@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'email_notifications',
     'corsheaders',
     'notifications',
+    'pgvector',
 ]
 
 MIDDLEWARE = [
@@ -233,3 +234,8 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = True
+
+# google api key
+CGOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
+GOOGLE_API_KEY = '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'
+

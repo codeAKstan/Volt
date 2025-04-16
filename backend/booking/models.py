@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models import Q
+from pgvector.django import VectorField
+
 
 User = get_user_model()
 
@@ -38,6 +40,7 @@ class WorkSpace(models.Model):
     is_available = models.BooleanField(default=True)
     features = models.ManyToManyField(Feature, related_name='workspaces', blank=True)
     hourly_rate = models.DecimalField(max_digits=6, decimal_places=2, default=5.00)
+    embedding = VectorField(dimensions=1536, null=True, blank=True)
     
     def __str__(self):
         return f"{self.name} ({self.get_type_display()})"
