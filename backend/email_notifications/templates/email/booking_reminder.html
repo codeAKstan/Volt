@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Booking Cancellation</title>
+    <title>Booking Reminder</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,7 +14,7 @@
         }
 
         .header {
-            background-color: #ef4444;
+            background-color: #0ea5e9;
             color: white;
             padding: 20px;
             text-align: center;
@@ -46,24 +46,30 @@
 
 <body>
     <div class="header">
-        <h1>Booking Cancelled</h1>
+        <h1>Booking Reminder</h1>
     </div>
     <div class="content">
         <p>Hello {{ user }},</p>
-        <p>Your booking has been cancelled.</p>
+        <p>This is a friendly reminder about your upcoming booking today:</p>
 
         <div class="booking-details">
-            <h3>Cancelled Booking Details:</h3>
+            <h3>Booking Details:</h3>
             <p><strong>Title:</strong> {{ booking.title }}</p>
             <p><strong>Location:</strong> {{ booking.workspace_name }}</p>
             <p><strong>Date:</strong> {{ booking.date }}</p>
             <p><strong>Time:</strong> {{ booking.start_time }} - {{ booking.end_time }}</p>
+            {% if booking.location %}
+            <p><strong>Address:</strong> {{ booking.location }}</p>
+            {% endif %}
             {% if booking.attendees %}
             <p><strong>Attendees:</strong> {{ booking.attendees|join:", " }}</p>
             {% endif %}
+            {% if booking.notes %}
+            <p><strong>Notes:</strong> {{ booking.notes }}</p>
+            {% endif %}
         </div>
 
-        <p>You can book a new space by logging into your account.</p>
+        <p>We look forward to seeing you soon!</p>
     </div>
     <div class="footer">
         <p>This is an automated message, please do not reply directly to this email.</p>
