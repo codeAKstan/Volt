@@ -15,6 +15,13 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 
+from email_notifications.tasks import (
+    send_booking_email, 
+    send_email_in_thread,
+    schedule_booking_reminders,
+    cancel_scheduled_reminders
+)
+
 # Get a logger for this file
 logger = logging.getLogger(__name__)
 
@@ -177,11 +184,15 @@ class BookingCreateView(generics.CreateAPIView):
         
             # Send email notification
             try:
-                if hasattr(booking, 'attendees') and booking.attendees:
-                    recipients = booking.attendees
-                    # Add the user's email if available
-                    if request.user.email and request.user.email not in recipients:
-                        recipients.append(request.user.email)
+                # Prepare recipients list
+                recipients = []
+                if booking.attendees:
+                    recipients.extend(booking.attendees)
+                # Add the user's email if available
+                if request.user.email and request.user.email not in recipients:
+                    recipients.append(request.user.email)
+                
+                if recipients:
                     
                     # Prepare context for email template
                     context = {
@@ -198,18 +209,22 @@ class BookingCreateView(generics.CreateAPIView):
                         'user': request.user.get_full_name() or request.user.email,
                     }
                     
-                    # Use the email sending task
-                    from email_notifications.tasks import send_booking_email, send_email_in_thread
-                    
+                    # Try to send via Celery
                     try:
-                        # Try Celery first
                         send_booking_email.delay(recipients, "Your Booking Confirmation", "booking_confirmation", context)
                         logger.info(f"Booking confirmation email queued with Celery for {recipients}")
+                        
+                        # Schedule reminder emails
+                        schedule_booking_reminders.delay(booking.id)
+                        logger.info(f"Reminder emails scheduled for booking {booking.id}")
+                        
                     except Exception as celery_error:
                         # Fall back to thread-based email
                         logger.warning(f"Celery task failed, using thread-based email: {str(celery_error)}")
                         send_email_in_thread(recipients, "Your Booking Confirmation", "booking_confirmation", context)
                         logger.info(f"Booking confirmation email sent via thread for {recipients}")
+                else:
+                    logger.warning(f"No recipients for booking {booking.id} confirmation email")
                     
             except Exception as email_error:
                 logger.error(f"Error sending booking confirmation email: {str(email_error)}")
