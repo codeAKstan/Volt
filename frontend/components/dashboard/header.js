@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Bell, Search, X } from "lucide-react"
+import { Bell, Search, X, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -22,27 +22,29 @@ import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { notificationApi } from "@/lib/api-client"
 import { formatDistanceToNow } from "date-fns"
+import { toast } from "sonner"
 
 export function DashboardHeader() {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, logout } = useAuth()
   const [notifications, setNotifications] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loadingNotifications, setLoadingNotifications] = useState(true)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
+  // Fetch notifications
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!user) return
 
-      setLoading(true)
       try {
         const data = await notificationApi.getByUser(user.id)
         setNotifications(data)
       } catch (error) {
         console.error("Error fetching notifications:", error)
       } finally {
-        setLoading(false)
+        setLoadingNotifications(false)
       }
     }
 
@@ -57,8 +59,6 @@ export function DashboardHeader() {
   const unreadNotifications = notifications.filter((n) => !n.read).length
 
   const handleMarkAsRead = async (id) => {
-    if (!user) return
-
     try {
       await notificationApi.markAsRead(user.id, id)
       setNotifications((prev) =>
@@ -66,12 +66,11 @@ export function DashboardHeader() {
       )
     } catch (error) {
       console.error("Error marking notification as read:", error)
+      toast.error("Failed to mark notification as read")
     }
   }
 
   const handleMarkAllAsRead = async () => {
-    if (!user) return
-
     try {
       // Mark all unread notifications as read
       const unreadNotifications = notifications.filter((n) => !n.read)
@@ -80,8 +79,10 @@ export function DashboardHeader() {
       }
 
       setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
+      toast.success("All notifications marked as read")
     } catch (error) {
       console.error("Error marking all notifications as read:", error)
+      toast.error("Failed to mark all notifications as read")
     }
   }
 
@@ -101,6 +102,22 @@ export function DashboardHeader() {
     const lastName = user.last_name || user.lastName || ""
 
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+  }
+
+  // Get notification badge based on type
+  const getNotificationBadge = (type) => {
+    switch (type) {
+      case "booking_confirmation":
+        return <Badge className="bg-green-500">Confirmed</Badge>
+      case "booking_reminder":
+        return <Badge className="bg-blue-500">Reminder</Badge>
+      case "booking_cancellation":
+        return <Badge className="bg-red-500">Cancelled</Badge>
+      case "booking_conflict":
+        return <Badge className="bg-orange-500">Conflict</Badge>
+      default:
+        return <Badge>Notification</Badge>
+    }
   }
 
   return (
@@ -180,34 +197,42 @@ export function DashboardHeader() {
                 )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {loading ? (
-                <div className="p-4 text-center">
-                  <span className="loading loading-spinner loading-sm"></span>
-                  <span className="ml-2 text-sm text-muted-foreground">Loading notifications...</span>
+              {loadingNotifications ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                  <span className="text-sm">Loading notifications...</span>
                 </div>
               ) : notifications.length > 0 ? (
-                notifications.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    className="flex cursor-pointer flex-col items-start p-4 focus:bg-accent"
-                    onClick={() => handleMarkAsRead(notification.id)}
-                  >
-                    <div className="mb-1 flex w-full justify-between">
-                      <span className="font-medium">{notification.title}</span>
-                      {!notification.read && (
-                        <Badge variant="default" className="ml-2">
-                          New
-                        </Badge>
-                      )}
+                <div className="max-h-[300px] overflow-y-auto">
+                  {notifications.slice(0, 5).map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className="flex cursor-pointer flex-col items-start p-4 focus:bg-accent"
+                      onClick={() => handleMarkAsRead(notification.id)}
+                    >
+                      <div className="mb-1 flex w-full justify-between">
+                        <span className="font-medium">{notification.title}</span>
+                        {!notification.read && (
+                          <Badge variant="default" className="ml-2">
+                            New
+                          </Badge>
+                        )}
+                        {getNotificationBadge(notification.type)}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      <span className="mt-1 text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                  {notifications.length > 5 && (
+                    <div className="p-2 text-center">
+                      <Link href="/dashboard/notifications" className="text-xs text-primary hover:underline">
+                        View all {notifications.length} notifications
+                      </Link>
                     </div>
-                    <p className="text-sm text-muted-foreground">{notification.message}</p>
-                    <span className="mt-1 text-xs text-muted-foreground">
-                      {notification.createdAt
-                        ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })
-                        : ""}
-                    </span>
-                  </DropdownMenuItem>
-                ))
+                  )}
+                </div>
               ) : (
                 <div className="p-4 text-center text-sm text-muted-foreground">No notifications</div>
               )}
@@ -228,7 +253,7 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                <AvatarImage
+                  <AvatarImage
                     src={user?.profileImage || user?.avatar || "/placeholder.svg"}
                     alt={user?.first_name || user?.firstName || "User"}
                   />
@@ -257,6 +282,11 @@ export function DashboardHeader() {
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/settings">Settings</Link>
               </DropdownMenuItem>
+              {(user?.role === "ADMIN" || user?.role === "admin") && (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/analytics">Analytics Dashboard</Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:bg-destructive/10 focus:text-destructive"

@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { WorkspaceCard } from "@/components/dashboard/workspace-card"
 import { Clock, Plus, Users, LayoutDashboard, Loader2, Calendar } from "lucide-react"
-import { bookingApi, workspaceApi } from "@/lib/api-client"
+import { bookingApi, workspaceApi, userApi } from "@/lib/api-client"
 import { toast } from "sonner"
 
 export default function DashboardPage() {
@@ -26,7 +26,7 @@ export default function DashboardPage() {
     totalBookings: 0,
     availableSpaces: 0,
     peakHours: "N/A",
-    activeUsers: 0,
+    activeUsers: "N/A",
   })
 
   useEffect(() => {
@@ -53,6 +53,15 @@ export default function DashboardPage() {
 
         // Fetch workspaces
         const workspacesData = await workspaceApi.getAll()
+        
+        // Fetch all users if admin
+        let usersData = []
+        if (user && (user.role === "ADMIN" || user.role === "admin")) {
+          usersData = await userApi.getAll()
+        } else {
+          // If user is not admin, set activeUsers to N/A
+          usersData = []
+        }
 
         // Calculate stats
         const upcomingBookings = bookingsData.filter(
@@ -61,9 +70,11 @@ export default function DashboardPage() {
 
         const availableSpaces = workspacesData.filter((w) => w.available).length
 
-        // For demo purposes, we'll use mock data for peak hours and active users
+        // Calculate active users (total users)
+        const activeUsers = user && (user.role === "ADMIN" || user.role === "admin") ? usersData.length : "N/A"
+
+        // For demo purposes, we'll use mock data for peak hours
         const peakHours = "10 AM - 2 PM"
-        const activeUsers = 42
 
         setBookings(bookingsData)
         setWorkspaces(workspacesData)
@@ -119,32 +130,32 @@ export default function DashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
+      <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading dashboard...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            {greeting}, {user?.first_name || user?.firstName || "User"}!
-          </h2>
-          <p className="text-muted-foreground">
-            Here's what's happening with your workspace today.
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button onClick={() => router.push("/dashboard/workspaces")}>
-            <Plus className="mr-2 h-4 w-4" />
+    <div className="container mx-auto p-6">
+      <header className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">{greeting}, {user?.first_name || user?.firstName || "User"}!</h1>
+            <p className="text-muted-foreground">
+              Here's what's happening with your workspace today.
+            </p>
+          </div>
+
+          <Button className="gap-2" onClick={() => router.push("/dashboard/workspaces")}>
+            <Plus size={16} />
             New Booking
           </Button>
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
           {
             title: "Total Bookings",
@@ -171,98 +182,91 @@ export default function DashboardPage() {
             icon: Users,
           },
         ].map((stat, index) => (
-          <motion.div
-            key={stat.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
-          >
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+          <Card key={index}>
+            <CardContent className="flex flex-col items-center justify-between pt-6">
+              <div className="mb-4 text-center">
+                <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                <stat.icon className="mx-auto mb-2 mt-2 h-6 w-6 text-primary" />
+              </div>
+              <div className="text-center">
+                <h2 className="text-2xl font-bold">{stat.value}</h2>
                 <p className="text-xs text-muted-foreground">{stat.description}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <Tabs defaultValue="upcoming" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="upcoming">Upcoming Bookings</TabsTrigger>
-            <TabsTrigger value="available">Available Workspaces</TabsTrigger>
+      <div className="mt-8">
+        <Tabs defaultValue="bookings">
+          <TabsList className="mb-6">
+            <TabsTrigger value="bookings">Upcoming Bookings</TabsTrigger>
+            <TabsTrigger value="workspaces">Available Workspaces</TabsTrigger>
           </TabsList>
-          <TabsContent value="upcoming" className="space-y-4">
+          <TabsContent value="bookings">
             {upcomingBookings.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {upcomingBookings.map((booking, index) => (
-                  <motion.div
+                  <BookingCard 
                     key={booking.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                  >
-                    <BookingCard
-                      booking={booking}
-                      onCancel={() => handleCancelBooking(booking.id)}
-                      isToday={isToday(parseISO(booking.date))}
-                    />
-                  </motion.div>
+                    booking={booking}
+                    onCancel={() => handleCancelBooking(booking.id)}
+                    isToday={isToday(parseISO(booking.date))}
+                  />
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                  <Calendar className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold">No upcoming bookings</h3>
-                <p className="mt-2 text-sm text-muted-foreground">You don't have any upcoming bookings</p>
-                <Button className="mt-4" onClick={() => router.push("/dashboard/workspaces")}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Book a workspace
-                </Button>
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Calendar className="mr-2 h-5 w-5" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <h3 className="mb-2 text-lg font-semibold">No upcoming bookings</h3>
+                  <p className="mb-4 text-sm text-muted-foreground">You don't have any upcoming bookings</p>
+                  <Button onClick={() => router.push("/dashboard/workspaces")}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Book a workspace
+                  </Button>
+                </CardContent>
+              </Card>
             )}
 
             {upcomingBookings.length > 0 && (
-              <div className="flex justify-end">
+              <div className="mt-4 text-center">
                 <Button variant="outline" onClick={() => router.push("/dashboard/bookings")}>
                   View all bookings
                 </Button>
               </div>
             )}
           </TabsContent>
-          <TabsContent value="available" className="space-y-4">
+          <TabsContent value="workspaces">
             {availableWorkspaces.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {availableWorkspaces.map((workspace, index) => (
-                  <motion.div
+                  <WorkspaceCard 
                     key={workspace.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                  >
-                    <WorkspaceCard workspace={workspace} />
-                  </motion.div>
+                    workspace={workspace}
+                  />
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                  <LayoutDashboard className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold">No available workspaces</h3>
-                <p className="mt-2 text-sm text-muted-foreground">All workspaces are currently booked</p>
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <LayoutDashboard className="mr-2 h-5 w-5" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <h3 className="mb-2 text-lg font-semibold">No available workspaces</h3>
+                  <p className="mb-4 text-sm text-muted-foreground">All workspaces are currently booked</p>
+                </CardContent>
+              </Card>
             )}
 
             {availableWorkspaces.length > 0 && (
-              <div className="flex justify-end">
+              <div className="mt-4 text-center">
                 <Button variant="outline" onClick={() => router.push("/dashboard/workspaces")}>
                   View all workspaces
                 </Button>
@@ -272,39 +276,37 @@ export default function DashboardPage() {
         </Tabs>
       </div>
 
-      <Card>
+      <Card className="mt-8">
         <CardHeader>
           <CardTitle>AI Recommendations</CardTitle>
           <CardDescription>Personalized workspace suggestions based on your preferences</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-card p-4">
-              <div className="flex items-start space-x-4">
-                <Avatar className="mt-1">
-                  <AvatarImage src="/placeholder.svg" />
-                  <AvatarFallback>AI</AvatarFallback>
+          <div className="flex flex-col space-y-4">
+            <div className="flex items-start space-x-4">
+              <div>
+                <Avatar>
+                  <AvatarFallback>
+                    <Clock className="h-4 w-4" />
+                  </AvatarFallback>
+                  <AvatarImage src="/ai-avatar.png" alt="AI" />
                 </Avatar>
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Workspace Suggestion</p>
-                    <p className="text-sm text-muted-foreground">
-                      Based on your past preferences, the East Wing Desk 7 is available at your usual time this week.
-                      Would you like to book it?
-                    </p>
+              </div>
+              <div className="flex-1 space-y-2 rounded-lg bg-muted p-4">
+                <div>
+                  <h4 className="text-sm font-semibold">Workspace Suggestion</h4>
+                  <div className="mt-2 text-sm">
+                    <p>Based on your past preferences, the East Wing Desk 7 is available at your usual time this week.
+                    Would you like to book it?</p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => router.push("/dashboard/bookings/new?workspace=7")}
-                    >
-                      Book Now
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/workspaces")}>
-                      Show Alternatives
-                    </Button>
-                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => router.push("/dashboard/bookings/new?workspace=7")}>
+                    Book Now
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/workspaces")}>
+                    Show Alternatives
+                  </Button>
                 </div>
               </div>
             </div>
