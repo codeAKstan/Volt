@@ -2,7 +2,12 @@ from django.contrib import admin
 from .models import Booking, WorkSpace, Hub, Desk, MeetingRoom, Location
 
 # Register the models in the admin interface
-
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'city', 'state', 'address')
+    search_fields = ('name', 'city', 'state', 'address')
+    list_filter = ('city', 'state')
+    
 @admin.register(WorkSpace)
 class WorkSpaceAdmin(admin.ModelAdmin):
     list_display = ('name', 'location', 'type', 'capacity', 'is_available')

@@ -84,34 +84,51 @@ class BookingCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         # Extract the data from the request
-        desk = self.request.data.get('desk', None)
-        meeting_room = self.request.data.get('meeting_room', None)
+        desk_id = self.request.data.get('desk', None)
+        meeting_room_id = self.request.data.get('meeting_room', None)
         start_time = self.request.data.get('start_time')
         end_time = self.request.data.get('end_time')
+        work_space_id = self.request.data.get('work_space')  # Get the workspace ID
+
+        # Make sure we have a workspace
+        if not work_space_id:
+            raise ValidationError("Workspace is required for booking.")
+            
+        work_space = get_object_or_404(WorkSpace, id=work_space_id)
 
         # If booking a desk
-        if desk:
-            desk_instance = Desk.objects.get(id=desk)
+        if desk_id:
+            desk_instance = get_object_or_404(Desk, id=desk_id)
             # Check if the desk is available
             if not desk_instance.is_available:
                 raise ValidationError("This desk is already booked for the selected time.")
             # If desk is available, create the booking
-            serializer.save(user=self.request.user, desk=desk_instance)
+            serializer.save(
+                user=self.request.user, 
+                desk=desk_instance,
+                work_space=work_space  # Include the workspace here
+            )
             # After booking, mark the desk as unavailable
             desk_instance.is_available = False
             desk_instance.save()
 
         # If booking a meeting room
-        elif meeting_room:
-            meeting_room_instance = MeetingRoom.objects.get(id=meeting_room)
+        elif meeting_room_id:
+            meeting_room_instance = get_object_or_404(MeetingRoom, id=meeting_room_id)
             # Check if the meeting room is available
             if not meeting_room_instance.is_available:
                 raise ValidationError("This meeting room is already booked for the selected time.")
             # If meeting room is available, create the booking
-            serializer.save(user=self.request.user, meeting_room=meeting_room_instance)
+            serializer.save(
+                user=self.request.user, 
+                meeting_room=meeting_room_instance,
+                work_space=work_space  # Include the workspace here
+            )
             # After booking, mark the meeting room as unavailable
             meeting_room_instance.is_available = False
             meeting_room_instance.save()
+        else:
+            raise ValidationError("Either desk or meeting room must be provided.")
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
