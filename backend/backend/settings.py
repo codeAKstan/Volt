@@ -46,6 +46,10 @@ INSTALLED_APPS = [
     'booking',
     'email_notifications',
     'corsheaders',
+
+    'pgvector',
+    'aibooking',
+
     'django_celery_results',
 ]
 
@@ -235,9 +239,16 @@ ANYMAIL = {
 
 DEFAULT_FROM_EMAIL = 'noreply@voltworkspace.com'
 
+
+
+# google api key
+CGOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
 # # If not using Mailgun, configure SMTP settings
 # EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 # EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 # EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 # EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 # EMAIL_USE_TLS = True
+
