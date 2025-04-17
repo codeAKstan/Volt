@@ -20,40 +20,29 @@ Volt is a modern workspace booking platform built with Next.js, Tailwind CSS, an
 ### Prerequisites
 
 - Node.js 18.x or later
-- npm or yarn
+- npm 
 
 ### Installation
 
 1. Clone the repository:
-   \`\`\`bash
-   git clone https://github.com/yourusername/volt-workspace-booking.git
-   cd volt-workspace-booking
-   \`\`\`
-
+   ```bash
+   git clone https://github.com/...
+   cd frontend
 2. Install dependencies:
-   \`\`\`bash
-   npm install
-   # or
-   yarn install
-   \`\`\`
-
+   ```bash
+   npm install --legacy-peer-deps
 3. Run the setup script:
-   \`\`\`bash
+   ```bash
    node setup.js
-   \`\`\`
-
 4. Start the development server:
-   \`\`\`bash
+   ```bash
    npm run dev
-   # or
-   yarn dev
-   \`\`\`
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
 ## Project Structure
 
-\`\`\`
+```
 volt-workspace-booking/
 ├── app/                    # Next.js App Router
 │   ├── dashboard/          # Dashboard pages
@@ -69,7 +58,7 @@ volt-workspace-booking/
 ├── lib/                    # Utility functions and API clients
 ├── public/                 # Static assets
 └── ...
-\`\`\`
+```
 
 ## Technologies Used
 
@@ -88,6 +77,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-\`\`\`
+
 
 Let's create a tailwind.config.js file:

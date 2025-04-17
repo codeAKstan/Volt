@@ -263,7 +263,10 @@ export function DashboardSidebar() {
             <SidebarMenuButton asChild>
               <Link href="/dashboard/profile" className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src="/placeholder.svg" alt={user?.firstName} />
+                <AvatarImage
+                    src={user?.profileImage || user?.avatar || "/placeholder.svg"}
+                    alt={user?.first_name || user?.firstName || "User"}
+                  />
                   <AvatarFallback>
                     {user?.firstName?.[0] || "U"}
                     {user?.lastName?.[0] || ""}
