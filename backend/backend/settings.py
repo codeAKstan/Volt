@@ -46,8 +46,8 @@ INSTALLED_APPS = [
     'booking',
     'email_notifications',
     'corsheaders',
-    'notifications',
     'pgvector',
+    'aibooking',
 ]
 
 MIDDLEWARE = [
@@ -237,4 +237,4 @@ EMAIL_USE_TLS = True
 
 # google api key
 CGOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
-
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')

@@ -83,8 +83,7 @@ class AIAssistantView(APIView):
             "timestamp": timezone.now().isoformat()
         })
     
-    @action(detail=False, methods=['get'])
-    def booking_instructions(self, request):
+    def get(self, request):
         """Get step-by-step booking instructions"""
         instructions = AIBookingAssistant.generate_booking_instructions()
         return Response({"instructions": instructions})

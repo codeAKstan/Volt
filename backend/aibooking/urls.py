@@ -7,7 +7,8 @@ router = DefaultRouter()
 router.register(r'workspaces', WorkSpaceViewSet)
 
 urlpatterns = [
+    path('', include(router.urls)),
     path('ai/assistant/', AIAssistantView.as_view(), name='ai-assistant'),
     path('ai/admin/', AdminAIView.as_view(), name='admin-ai'),
-    path('ai/instructions/', AIAssistantView.as_view({'get': 'booking_instructions'}), name='booking-instructions'),
+    path('ai/instructions/', AIAssistantView.as_view(), name='booking-instructions'),
 ]
