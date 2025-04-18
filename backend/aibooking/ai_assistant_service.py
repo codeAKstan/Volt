@@ -44,6 +44,66 @@ class AIBookingAssistant:
         return workspaces
     
     @staticmethod
+    def find_available_workspaces(criteria=None, limit=5):
+        """Find available workspaces based on criteria"""
+        if criteria is None:
+            criteria = {}
+            
+        # Start with all available workspaces
+        workspaces_query = WorkSpace.objects.filter(is_available=True)
+        
+        # Apply filters based on criteria
+        if 'type' in criteria and criteria['type']:
+            workspaces_query = workspaces_query.filter(type__icontains=criteria['type'])
+            
+        if 'location' in criteria and criteria['location']:
+            # Find locations that match the criteria
+            locations = Location.objects.filter(name__icontains=criteria['location'])
+            if locations.exists():
+                workspaces_query = workspaces_query.filter(location__in=locations)
+                
+        if 'capacity' in criteria and criteria['capacity']:
+            try:
+                min_capacity = int(criteria['capacity'])
+                workspaces_query = workspaces_query.filter(capacity__gte=min_capacity)
+            except (ValueError, TypeError):
+                # If capacity is not a valid integer, ignore this filter
+                pass
+                
+        if 'features' in criteria and criteria['features']:
+            # Find features that match the criteria
+            features = Feature.objects.filter(name__in=criteria['features'])
+            if features.exists():
+                for feature in features:
+                    workspaces_query = workspaces_query.filter(features=feature)
+        
+        # Get the workspaces
+        workspaces = workspaces_query[:limit]
+        
+        # Format the response
+        result = []
+        for workspace in workspaces:
+            # Get the location name
+            location_name = workspace.location.name if workspace.location else "Unknown"
+            
+            # Get the features
+            features = [feature.name for feature in workspace.features.all()]
+            
+            result.append({
+                'id': workspace.id,
+                'name': workspace.name,
+                'type': workspace.type,
+                'description': workspace.description,
+                'location': location_name,
+                'capacity': workspace.capacity,
+                'hourly_rate': float(workspace.hourly_rate) if workspace.hourly_rate else None,
+                'features': features,
+                'is_available': workspace.is_available,
+            })
+            
+        return result
+    
+    @staticmethod
     def check_availability(workspace_id, date, start_time, end_time):
         """Check workspace availability for a given time period"""
         try:
@@ -170,33 +230,48 @@ class AIBookingAssistant:
         if conversation_history is None:
             conversation_history = []
         
-        # Create prompt with context about the booking system
-        system_prompt = """
-        You are an AI booking assistant for a workspace booking system called volt. 
-        Your role is to help users find and book workspaces like desks, meeting rooms, 
-        conference rooms, phone booths, event halls, and collaboration spaces.
-        
-        You can help users with:
-        1. Finding available workspaces based on their requirements
-        2. Checking availability of specific workspaces
-        3. Explaining the booking process
-        4. Answering questions about workspace features and locations
-        5. Providing information about pricing
-        
-        Be concise, helpful, and friendly in your responses. If you don't know something, 
-        say so clearly and offer to connect them with human support.
-        """
-        
-        # Format conversation history
-        messages = [{"role": "system", "content": system_prompt}]
-        for msg in conversation_history:
-            role = "user" if msg.get('is_user', True) else "assistant"
-            messages.append({"role": role, "content": msg.get('message', '')})
-        
-        # Add current user message
-        messages.append({"role": "user", "content": user_message})
-        
         try:
+            # For debugging
+            print(f"Processing message: {user_message}")
+            print(f"Conversation history length: {len(conversation_history)}")
+            
+            # If OpenAI API key is not available, use a fallback response
+            if not hasattr(settings, 'OPENAI_API_KEY') or not settings.OPENAI_API_KEY:
+                print("OpenAI API key not found, using fallback response")
+                return "I'm here to help with workspace bookings. You can ask me about availability, pricing, or book a space directly."
+            
+            # Create prompt with context about the booking system
+            system_prompt = """
+            You are an AI booking assistant for a workspace booking system called Volt. 
+            Your role is to help users find and book workspaces like desks, meeting rooms, 
+            conference rooms, phone booths, event halls, and collaboration spaces.
+            
+            You can help users with:
+            1. Finding available workspaces based on their requirements
+            2. Checking availability of specific workspaces
+            3. Explaining the booking process
+            4. Answering questions about workspace features and locations
+            5. Providing information about pricing
+            
+            Be concise, helpful, and friendly in your responses. If you don't know something, 
+            say so clearly and offer to connect them with human support.
+            """
+            
+            # Format conversation history for OpenAI
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add conversation history
+            for msg in conversation_history:
+                role = "user" if msg.get('is_user', True) else "assistant"
+                content = msg.get('message', '')
+                
+                # Skip empty messages
+                if content:
+                    messages.append({"role": role, "content": content})
+            
+            # Add current user message
+            messages.append({"role": "user", "content": user_message})
+            
             # Get response from OpenAI
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
@@ -205,7 +280,10 @@ class AIBookingAssistant:
                 temperature=0.7
             )
             
-            return response.choices[0].message['content']
+            ai_response = response.choices[0].message['content']
+            print(f"AI response generated: {ai_response[:50]}...")
+            return ai_response
+            
         except Exception as e:
             print(f"Error generating AI response: {e}")
             return "I'm sorry, I'm having trouble processing your request. Please try again or contact support."

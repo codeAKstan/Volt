@@ -24,7 +24,7 @@ urlpatterns = [
     path('api/', include('authentication.urls')),
     path('api/booking/', include('booking.urls')),
     path('api/email/', include('email_notifications.urls')),
-    path('api/aibooking/', include('aibooking.urls')),
+    path('api/ai/', include('aibooking.urls')),
 ]
 
 if settings.DEBUG:

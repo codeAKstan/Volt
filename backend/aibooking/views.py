@@ -1,12 +1,13 @@
 from django.shortcuts import render
-
-# Create your views here.
-# views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
+from django.http import JsonResponse
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from booking.models import WorkSpace, Booking
 from booking.serializers import WorkSpaceSerializer, BookingSerializer
@@ -65,41 +66,60 @@ class WorkSpaceViewSet(viewsets.ModelViewSet):
 
 class AIAssistantView(APIView):
     """API view for interacting with the AI booking assistant"""
-    
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
+        """Handle general AI assistant interactions"""
         message = request.data.get('message', '')
         conversation_history = request.data.get('conversation_history', [])
-        
+
         if not message:
             return Response(
-                {"error": "Message is required"}, 
+                {"error": "Message is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         response = AIBookingAssistant.process_chat_message(message, conversation_history)
-        
         return Response({
             "response": response,
             "timestamp": timezone.now().isoformat()
         })
-    
-    def get(self, request):
-        """Get step-by-step booking instructions"""
-        instructions = AIBookingAssistant.generate_booking_instructions()
-        return Response({"instructions": instructions})
+
+    def find_workspaces(self, request):
+        """Find available workspaces based on criteria"""
+        criteria = request.data
+        workspaces = AIBookingAssistant.find_available_workspaces(criteria)
+        return Response(workspaces)
 
 class AdminAIView(APIView):
-    #Admin-only view for AI management tasks
+    """Admin-only view for AI management tasks"""
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
-        action = request.data.get('action')
-        
-        if action == 'update_embeddings':
-            # This should be restricted to admin users
-            count = EmbeddingService.update_workspace_embeddings()
-            return Response({"updated_count": count})
-        
-        return Response(
-            {"error": "Invalid action"}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        try:
+            # Check if user is admin
+            if not request.user.is_staff and not request.user.role == 'ADMIN':
+                return Response(
+                    {"error": "Admin privileges required"}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            action = request.data.get('action')
+            
+            if action == 'update_embeddings':
+                # This should be restricted to admin users
+                count = EmbeddingService.update_workspace_embeddings()
+                return Response({"updated_count": count})
+            
+            return Response(
+                {"error": "Invalid action"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            print(f"Error in AdminAIView.post: {str(e)}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
