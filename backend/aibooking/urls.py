@@ -1,14 +1,14 @@
-# urls.py
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from .views import WorkSpaceViewSet, AIAssistantView, AdminAIView
+from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register(r'workspaces', WorkSpaceViewSet)
+router.register(r'workspaces', WorkSpaceViewSet, basename='workspace')
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('ai/assistant/', AIAssistantView.as_view(), name='ai-assistant'),
-    path('ai/admin/', AdminAIView.as_view(), name='admin-ai'),
-    path('ai/instructions/', AIAssistantView.as_view(), name='booking-instructions'),
+    path('assistant/', AIAssistantView.as_view(), name='ai_assistant'),
+    path('assistant/find-workspaces/', AIAssistantView.as_view(), name='find_workspaces'),
+    path('admin/', AdminAIView.as_view(), name='ai_admin'),
 ]
+
+urlpatterns += router.urls
