@@ -21,4 +21,3 @@ dj-database-url>=2.0.0
 whitenoise>=6.0.0
 asgiref==3.8.1
 sqlparse==0.5.3
-django-extensions==4.2.0
