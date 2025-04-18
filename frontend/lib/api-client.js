@@ -2,7 +2,7 @@
  * API client for making requests to the Django backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://volt-5dy7.onrender.com/api"
 
 /**
  * Makes a fetch request to the API with the given options
