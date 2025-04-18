@@ -1,0 +1,6 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: dj-database-url in /home/codeakstan/.local/lib/python3.10/site-packages (2.3.0)
+Requirement already satisfied: Django>=4.2 in /home/codeakstan/.local/lib/python3.10/site-packages (from dj-database-url) (5.1.2)
+Requirement already satisfied: typing-extensions>=3.10.0.0 in /home/codeakstan/.local/lib/python3.10/site-packages (from dj-database-url) (4.12.2)
+Requirement already satisfied: sqlparse>=0.3.1 in /home/codeakstan/.local/lib/python3.10/site-packages (from Django>=4.2->dj-database-url) (0.5.1)
+Requirement already satisfied: asgiref<4,>=3.8.1 in /home/codeakstan/.local/lib/python3.10/site-packages (from Django>=4.2->dj-database-url) (3.8.1)
