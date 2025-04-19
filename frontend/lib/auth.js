@@ -1,193 +1,81 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
+import { authAPI } from "@/lib/api-client"
+import { useRouter } from "next/navigation"
 
-const AuthContext = createContext()
+const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = localStorage.getItem("volt_user")
-    if (storedUser) {
+    const loadUser = async () => {
       try {
-        setUser(JSON.parse(storedUser))
+        const userData = await authAPI.getCurrentUser()
+        if (userData) {
+          setUser(userData)
+        }
       } catch (error) {
-        console.error("Error parsing stored user:", error)
+        // Ignore errors related to authentication
+        console.warn("Authentication check failed:", error)
+      } finally {
+        setLoading(false)
       }
     }
-    setLoading(false)
+
+    loadUser()
   }, [])
 
   const login = async (email, password) => {
+    setLoading(true)
     try {
-      // Make API call to login
-      const response = await fetch("/api/auth/login/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Invalid credentials")
-      }
-
-      const data = await response.json()
-
-      // Log the token for debugging
-      console.log("Login response tokens:", data.tokens)
-
-      // Store user data in localStorage
+      const data = await authAPI.login(email, password)
+      localStorage.setItem("volt_access_token", data.tokens.access)
+      localStorage.setItem("volt_refresh_token", data.tokens.refresh)
       localStorage.setItem("volt_user", JSON.stringify(data.user))
-
-      // Also store the tokens separately for easier access
-      if (data.tokens) {
-        localStorage.setItem("volt_tokens", JSON.stringify(data.tokens))
-
-        // Add tokens to the user object for convenience
-        const userWithTokens = {
-          ...data.user,
-          tokens: data.tokens,
-        }
-        localStorage.setItem("volt_user", JSON.stringify(userWithTokens))
-        setUser(userWithTokens)
-      } else {
-        setUser(data.user)
-      }
-
-      return data
-    } catch (error) {
-      console.error("Login error:", error)
-      throw error
+      setUser(data.user)
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Update the signup function to better handle and parse error responses
   const signup = async (userData) => {
+    setLoading(true)
     try {
-      // Make API call to signup
-      const response = await fetch("/api/auth/signup/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        // Parse and format error messages from the backend
-        const formattedErrors = {}
-
-        // Handle specific error cases
-        if (data.email) {
-          formattedErrors.email = Array.isArray(data.email) ? data.email[0] : data.email
-        }
-
-        if (data.password) {
-          formattedErrors.password = Array.isArray(data.password) ? data.password[0] : data.password
-        }
-
-        if (data.password2) {
-          formattedErrors.confirmPassword = Array.isArray(data.password2) ? data.password2[0] : data.password2
-        }
-
-        if (data.role) {
-          formattedErrors.role = Array.isArray(data.role) ? data.role[0] : data.role
-        }
-
-        if (data.non_field_errors) {
-          formattedErrors.general = Array.isArray(data.non_field_errors)
-            ? data.non_field_errors[0]
-            : data.non_field_errors
-        }
-
-        // If we have no specific errors but the request failed, add a general error
-        if (Object.keys(formattedErrors).length === 0) {
-          formattedErrors.general = "Signup failed. Please try again."
-        }
-
-        throw { response: { data: formattedErrors } }
-      }
-
-      // After signup, automatically log in
-      return await login(userData.email, userData.password)
-    } catch (error) {
-      console.error("Signup error:", error)
-      throw error
+      const data = await authAPI.signup(userData)
+      localStorage.setItem("volt_user", JSON.stringify(data.user))
+      setUser(data.user)
+    } finally {
+      setLoading(false)
     }
-  }
-
-  const logout = () => {
-    localStorage.removeItem("volt_user")
-    localStorage.removeItem("volt_tokens")
-    setUser(null)
   }
 
   const updateProfile = (updatedUser) => {
-    // Update user in state and localStorage
-    const newUserData = { ...user, ...updatedUser }
-    setUser(newUserData)
-    localStorage.setItem("volt_user", JSON.stringify(newUserData))
+    setUser(updatedUser)
+    localStorage.setItem("volt_user", JSON.stringify(updatedUser))
   }
 
-  // Get the authentication token
-  const getAuthToken = () => {
-    try {
-      // Try to get the token from localStorage
-      const userData = localStorage.getItem("volt_user")
-      if (userData) {
-        const user = JSON.parse(userData)
-        return user.tokens?.access || null
-      }
-
-      // If not found in user data, try the separate tokens storage
-      const tokensData = localStorage.getItem("volt_tokens")
-      if (tokensData) {
-        const tokens = JSON.parse(tokensData)
-        return tokens.access || null
-      }
-    } catch (error) {
-      console.error("Error getting auth token:", error)
-    }
-    return null
+  const logout = () => {
+    authAPI.logout()
+    setUser(null)
+    router.push("/login")
   }
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateProfile, getAuthToken }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const value = {
+    user,
+    loading,
+    login,
+    signup,
+    logout,
+    updateProfile,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
   return useContext(AuthContext)
-}
-
-// Export the getAuthToken function for use outside the context
-export const getAuthToken = () => {
-  try {
-    // Try to get the token from localStorage
-    const userData = localStorage.getItem("volt_user")
-    if (userData) {
-      const user = JSON.parse(userData)
-      return user.tokens?.access || null
-    }
-
-    // If not found in user data, try the separate tokens storage
-    const tokensData = localStorage.getItem("volt_tokens")
-    if (tokensData) {
-      const tokens = JSON.parse(tokensData)
-      return tokens.access || null
-    }
-  } catch (error) {
-    console.error("Error getting auth token:", error)
-  }
-  return null
 }
