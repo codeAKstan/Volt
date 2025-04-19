@@ -95,13 +95,17 @@ export default function SignupPage() {
         if (backendErrors.email) {
           const emailError = Array.isArray(backendErrors.email) ? backendErrors.email[0] : backendErrors.email
 
-          // Check specifically for email already exists error
-          if (
+          // Check specifically for email uniqueness error with the exact message
+          if (emailError === "This field must be unique.") {
+            newErrors.email = "Email already exists"
+          }
+          // Also keep the other checks for different error messages
+          else if (
             emailError.toLowerCase().includes("already exists") ||
             emailError.toLowerCase().includes("already in use") ||
             emailError.toLowerCase().includes("unique")
           ) {
-            newErrors.email = "This email is already registered. Please use a different email or sign in."
+            newErrors.email = "Email already exists"
           } else {
             newErrors.email = emailError
           }
@@ -169,8 +173,13 @@ export default function SignupPage() {
           setGeneralError("An error occurred during signup. Please try again.")
         }
       } else if (error.message) {
-        // Handle error with message
-        setGeneralError(error.message)
+        // Check if the error message contains the uniqueness error for email
+        if (error.message.includes("This field must be unique") && error.message.toLowerCase().includes("email")) {
+          setErrors({ email: "Email already exists" })
+        } else {
+          // Handle error with message
+          setGeneralError(error.message)
+        }
       } else {
         // Handle network or unexpected errors
         setGeneralError("An unexpected error occurred. Please try again later.")
