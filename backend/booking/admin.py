@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking, Notification
+from .models import WorkSpace, Hub, Desk, MeetingRoom, Booking, Notification, Location, Feature
 
 @admin.register(WorkSpace)
 class WorkSpaceAdmin(admin.ModelAdmin):
@@ -58,3 +58,15 @@ class NotificationAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
     list_editable = ('read',)
     raw_id_fields = ('user', 'booking')
+
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'address')
+    search_fields = ('name', 'address')
+    list_per_page = 20
+
+@admin.register(Feature)
+class FeatureAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description')
+    search_fields = ('name', 'description')
+    list_per_page = 20

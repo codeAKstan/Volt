@@ -90,9 +90,17 @@ export default function SignupPage() {
         
         // Handle specific error cases
         if (backendErrors.email) {
-          setErrors(prev => ({ ...prev, email: Array.isArray(backendErrors.email) 
+          // Check specifically for email already exists error
+          const emailError = Array.isArray(backendErrors.email) 
             ? backendErrors.email[0] 
-            : backendErrors.email }))
+            : backendErrors.email
+          
+          // You can check for specific error messages if the backend provides them
+          if (emailError.includes("already exists") || emailError.includes("already in use") || emailError.includes("unique")) {
+            setErrors(prev => ({ ...prev, email: "This email is already registered. Please use a different email or sign in." }))
+          } else {
+            setErrors(prev => ({ ...prev, email: emailError }))
+          }
         }
         
         if (backendErrors.password) {
