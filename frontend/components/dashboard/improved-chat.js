@@ -16,10 +16,119 @@ import { workspaceApi, bookingApi } from "@/lib/api-client"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
 
+// Volt Workspace knowledge base from PDF
+const voltWorkspaceKnowledge = {
+  overview: `Volt Workspace is an innovative, AI-powered workspace booking solution designed to 
+streamline how users discover, reserve, and manage workspaces. Built with a seamless user 
+experience in mind, the platform caters to freelancers, remote workers, startups, and companies 
+seeking efficient, smart, and accessible spaces to work from.`,
+
+  features: [
+    "Search for nearby or specialized workspaces",
+    "View availability in real-time",
+    "Filter based on preferences (e.g., Wi-Fi, power outlets, quiet zones)",
+    "Book instantly through an intuitive interface",
+    "Interact with an integrated AI assistant for help and suggestions",
+  ],
+
+  objectives: [
+    "Simplify workspace booking across locations",
+    "Leverage AI to provide real-time assistance and smart recommendations",
+    "Support workspace managers with backend tools for space monitoring and control",
+    "Enable users to make fast and informed decisions on where and when to work",
+  ],
+
+  uniqueValueProposition: `Volt Workspace redefines how people discover and book workspaces by merging the power of 
+artificial intelligence with a clean, user-friendly interface. Unlike traditional booking 
+platforms, Volt offers personalized, conversational assistance that understands user needs in 
+real time and delivers tailored workspace recommendations.`,
+
+  uniqueFeatures: [
+    "AI-Powered Booking Assistant: Users can interact with an AI to ask questions like, 'Where can I work quietly this afternoon?' and instantly receive smart suggestions",
+    "Location-Based, Real-Time Availability: Whether users need a private room, an open desk, or a meeting space, Volt shows real-time availability based on their location and preferences",
+    "Intuitive and Fast Booking Experience: No complex steps. Just search, ask, and book in seconds through a highly responsive UI",
+    "Support for Workspace Providers: Volt also caters to workspace owners with a management dashboard to monitor reservations, check-ins, and analytics, making operations smooth and efficient",
+  ],
+
+  userJourney: [
+    "User Login/Signup: New users register or log in using email, Google, or preferred authentication. Users can set preferences such as location, type of workspace, or amenities",
+    "Ask the AI Assistant or Browse Manually: Users can chat with the AI assistant or manually search/filter available spaces",
+    "Smart Recommendations & Availability: The platform returns personalized suggestions using real-time availability, user preferences, and workspace ratings and features",
+    "Book a Workspace: Users select their desired time slot. Booking confirmation is shown instantly with details",
+    "Get Notifications & Reminders: Users receive booking confirmations and reminders via email or in-app",
+    "View & Manage Bookings: Users can cancel, reschedule, or view past and upcoming bookings from their dashboard",
+  ],
+
+  adminWorkflow: [
+    "List new spaces",
+    "Set availability schedules",
+    "Monitor bookings in real-time",
+    "Analyze user traffic and preferences through the admin dashboard",
+  ],
+}
+
 // Fallback responses in case of API failure
 const fallbackResponses = {
   error: "I'm sorry, I'm having trouble connecting to the server. Please try again in a moment.",
   greeting: "Hello! I'm your Volt AI assistant. How can I help you with workspace bookings today?",
+}
+
+// Function to check if a query is about Volt Workspace information
+const isAboutVoltWorkspace = (query) => {
+  const keywords = [
+    "volt",
+    "workspace",
+    "about",
+    "features",
+    "how it works",
+    "what is",
+    "tell me about",
+    "objectives",
+    "value",
+    "unique",
+    "proposition",
+    "user journey",
+    "admin",
+    "workflow",
+  ]
+
+  return keywords.some((keyword) => query.toLowerCase().includes(keyword.toLowerCase()))
+}
+
+// Function to generate response from Volt Workspace knowledge
+const generateVoltWorkspaceResponse = (query) => {
+  query = query.toLowerCase()
+
+  // Check for specific questions about Volt Workspace
+  if (query.includes("what is volt") || query.includes("about volt") || query.includes("overview")) {
+    return voltWorkspaceKnowledge.overview
+  }
+
+  if (query.includes("features") || query.includes("what can i do")) {
+    return `Volt Workspace offers the following features:\n\n${voltWorkspaceKnowledge.features.map((f) => `• ${f}`).join("\n")}`
+  }
+
+  if (query.includes("objectives") || query.includes("goals")) {
+    return `The key objectives of Volt Workspace are:\n\n${voltWorkspaceKnowledge.objectives.map((o) => `• ${o}`).join("\n")}`
+  }
+
+  if (query.includes("unique") || query.includes("value proposition") || query.includes("different")) {
+    return `${voltWorkspaceKnowledge.uniqueValueProposition}\n\nWhat makes Volt Workspace unique:\n\n${voltWorkspaceKnowledge.uniqueFeatures.map((f) => `• ${f}`).join("\n")}`
+  }
+
+  if (query.includes("how it works") || query.includes("user journey") || query.includes("process")) {
+    return `Here's how Volt Workspace works:\n\n${voltWorkspaceKnowledge.userJourney.map((step, index) => `${index + 1}. ${step}`).join("\n\n")}`
+  }
+
+  if (query.includes("admin") || query.includes("workspace owner") || query.includes("provider")) {
+    return `Workspace providers and admins can:\n\n${voltWorkspaceKnowledge.adminWorkflow.map((a) => `• ${a}`).join("\n")}`
+  }
+
+  // General information about Volt Workspace
+  return `${voltWorkspaceKnowledge.overview}\n\nKey features include:\n\n${voltWorkspaceKnowledge.features
+    .slice(0, 3)
+    .map((f) => `• ${f}`)
+    .join("\n")}\n\nWould you like to know more about specific aspects of Volt Workspace?`
 }
 
 // Component to display workspace recommendations
@@ -173,17 +282,24 @@ const BookingForm = ({ workspace, onConfirm, onCancel }) => {
 export function ImprovedChat() {
   const { user } = useAuth()
   const [messages, setMessages] = useState([
-    { id: "initial-greeting", content: fallbackResponses.greeting, sender: "ai", isTyping: false, completed: true, role: "assistant" },
+    {
+      id: "initial-greeting",
+      content: fallbackResponses.greeting,
+      sender: "ai",
+      isTyping: false,
+      completed: true,
+      role: "assistant",
+    },
   ])
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [isThinking, setIsThinking] = useState(false)
   const messagesEndRef = useRef(null)
-  
+
   // Add a state to track if there's an infinite loop
   const [isLooping, setIsLooping] = useState(false)
-  
+
   // Add refs to store timeout/interval IDs for cleanup
   const timeoutRefs = useRef([])
   const intervalRefs = useRef([])
@@ -200,32 +316,32 @@ export function ImprovedChat() {
   useEffect(() => {
     scrollToBottom()
   }, [messages, workspaceRecommendations, selectedWorkspace])
-  
+
   // Cleanup function to stop all ongoing processes
   const stopAllProcesses = () => {
     // Clear all timeouts
-    timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId))
+    timeoutRefs.current.forEach((timeoutId) => clearTimeout(timeoutId))
     timeoutRefs.current = []
-    
+
     // Clear all intervals
-    intervalRefs.current.forEach(intervalId => clearInterval(intervalId))
+    intervalRefs.current.forEach((intervalId) => clearInterval(intervalId))
     intervalRefs.current = []
-    
+
     // Reset all states that might be causing loops
     setIsThinking(false)
     setIsTyping(false)
     setIsLooping(false)
-    
+
     // Reset any other states that might be in an inconsistent state
     setWorkspaceRecommendations([])
-    
+
     // Show a confirmation toast
     toast.success("All processes stopped. The interface has been reset.")
-    
+
     // Update messages with a system notice
     if (isLooping) {
       const systemNoticeId = `system-notice-${Date.now()}`
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           id: systemNoticeId,
@@ -233,7 +349,7 @@ export function ImprovedChat() {
           sender: "ai",
           completed: true,
           role: "assistant",
-        }
+        },
       ])
     }
   }
@@ -394,6 +510,31 @@ export function ImprovedChat() {
 
     // Clear any previous recommendations when sending a new message
     setWorkspaceRecommendations([])
+
+    // Check if the message is about Volt Workspace information
+    if (isAboutVoltWorkspace(inputValue)) {
+      const response = generateVoltWorkspaceResponse(inputValue)
+
+      // Hide thinking state and show typing animation
+      setIsThinking(false)
+      setIsTyping(true)
+
+      // Add AI response with typing animation
+      const aiMessageId = `ai-message-${Date.now()}`
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: aiMessageId,
+          content: response,
+          sender: "ai",
+          isTyping: true,
+          completed: false,
+          role: "assistant",
+        },
+      ])
+
+      return
+    }
 
     // Extract workspace criteria from the message
     const criteria = extractWorkspaceCriteria(inputValue)
@@ -568,7 +709,7 @@ export function ImprovedChat() {
     }
 
     setMessages((prev) => [...prev, aiMessage])
-    
+
     // Ensure thinking state is turned off when selecting a workspace
     setIsThinking(false)
   }
@@ -595,8 +736,9 @@ export function ImprovedChat() {
     return [
       "Find me an available desk",
       "Book a meeting room for tomorrow",
-      "Are there any conference rooms available?",
-      "Find a workspace in the East Wing",
+      "What is Volt Workspace?",
+      "Tell me about Volt's features",
+      "How does Volt Workspace work?",
     ]
   }
 
@@ -604,12 +746,12 @@ export function ImprovedChat() {
   useEffect(() => {
     // Initialize a counter to detect rapid state changes
     let stateChangeCounter = 0
-    
+
     // Set up an interval to check for rapidly changing states
     const intervalId = setInterval(() => {
       if (isThinking || isTyping) {
         stateChangeCounter++
-        
+
         // If state is changing rapidly, we might be in a loop
         if (stateChangeCounter > 5) {
           setIsLooping(true)
@@ -619,16 +761,16 @@ export function ImprovedChat() {
         stateChangeCounter = 0
       }
     }, 1000)
-    
+
     intervalRefs.current.push(intervalId)
-    
+
     return () => {
       clearInterval(intervalId)
     }
   }, [isThinking, isTyping])
 
   return (
-    <div className="flex flex-col h-[calc(100vh-10rem)]">
+    <div className="flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-10rem)]">
       <Card className="flex-1 flex flex-col overflow-hidden">
         <CardHeader className="border-b">
           <CardTitle className="flex items-center">
@@ -647,7 +789,7 @@ export function ImprovedChat() {
                 className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} mb-4`}
               >
                 <div
-                  className={`flex items-start gap-2 max-w-[80%] group ${
+                  className={`flex items-start gap-2 max-w-[90%] sm:max-w-[80%] group ${
                     message.sender === "user" ? "flex-row-reverse" : ""
                   }`}
                 >
@@ -719,7 +861,7 @@ export function ImprovedChat() {
                 transition={{ duration: 0.3 }}
                 className="flex justify-start mb-4"
               >
-                <div className="flex items-start gap-2 max-w-[90%]">
+                <div className="flex items-start gap-2 max-w-[90%] sm:max-w-[90%] w-full">
                   <Avatar className="mt-1 h-8 w-8">
                     <AvatarImage src="/placeholder.svg" />
                     <AvatarFallback className="bg-primary text-primary-foreground">
@@ -744,7 +886,7 @@ export function ImprovedChat() {
                 transition={{ duration: 0.3 }}
                 className="flex justify-start mb-4"
               >
-                <div className="flex items-start gap-2 max-w-[90%]">
+                <div className="flex items-start gap-2 max-w-[90%] sm:max-w-[90%] w-full">
                   <Avatar className="mt-1 h-8 w-8">
                     <AvatarImage src="/placeholder.svg" />
                     <AvatarFallback className="bg-primary text-primary-foreground">
@@ -820,7 +962,7 @@ export function ImprovedChat() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="flex-shrink-0">
+                  <Button variant="outline" size="icon" className="flex-shrink-0 hidden sm:flex">
                     <Paperclip className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -831,11 +973,11 @@ export function ImprovedChat() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="flex-shrink-0">
+                  <Button variant="outline" size="icon" className="flex-shrink-0 hidden sm:flex">
                     <ImageIcon className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Stop</TooltipContent>
+                <TooltipContent>Add image</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
@@ -853,7 +995,7 @@ export function ImprovedChat() {
                   <Button
                     variant={isRecording ? "destructive" : "outline"}
                     size="icon"
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 hidden sm:flex"
                     onClick={handleMicClick}
                   >
                     <Mic className="h-4 w-4" />
@@ -868,8 +1010,8 @@ export function ImprovedChat() {
               disabled={!inputValue.trim() || isThinking || isTyping}
               className="flex-shrink-0"
             >
-              <Send className="h-4 w-4 mr-2" />
-              Send
+              <Send className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Send</span>
             </Button>
           </div>
           <div className="flex items-center justify-between mt-2">

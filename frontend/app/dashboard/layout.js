@@ -35,13 +35,13 @@ function DashboardLayoutContent({ children }) {
   return (
     <DashboardSidebarWrapper>
       <DashboardSidebar />
-      <SidebarInset>
+      <SidebarInset className="flex flex-col">
         <DashboardHeader />
         <motion.main
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="flex-1 p-6 md:p-8"
+          className="flex-1 overflow-auto p-4 md:p-6 lg:p-8"
         >
           {children}
         </motion.main>
