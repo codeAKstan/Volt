@@ -51,6 +51,7 @@ export default function SignupPage() {
     }
   }
 
+  // Update the handleSubmit function to better handle errors
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrors({})
@@ -84,9 +85,11 @@ export default function SignupPage() {
       console.error("Signup error:", error)
 
       // Handle validation errors
-      if (error.response && error.response.data) {
+      if (error.formattedErrors) {
         // Map backend errors to frontend fields
-        const backendErrors = error.response.data
+        const backendErrors = error.formattedErrors
+        const newErrors = {}
+        let hasSetError = false
 
         // Handle email errors - specifically check for uniqueness violations
         if (backendErrors.email) {
@@ -98,35 +101,11 @@ export default function SignupPage() {
             emailError.toLowerCase().includes("already in use") ||
             emailError.toLowerCase().includes("unique")
           ) {
-            setErrors((prev) => ({
-              ...prev,
-              email: "This email is already registered. Please use a different email or sign in.",
-            }))
+            newErrors.email = "This email is already registered. Please use a different email or sign in."
           } else {
-            setErrors((prev) => ({ ...prev, email: emailError }))
+            newErrors.email = emailError
           }
-        }
-
-        // Handle password errors with clear messaging
-        if (backendErrors.password) {
-          const passwordError = Array.isArray(backendErrors.password)
-            ? backendErrors.password[0]
-            : backendErrors.password
-          setErrors((prev) => ({
-            ...prev,
-            password: passwordError,
-          }))
-        }
-
-        // Handle password confirmation errors
-        if (backendErrors.password2) {
-          const password2Error = Array.isArray(backendErrors.password2)
-            ? backendErrors.password2[0]
-            : backendErrors.password2
-          setErrors((prev) => ({
-            ...prev,
-            confirmPassword: password2Error,
-          }))
+          hasSetError = true
         }
 
         // Handle role errors - specifically for admin role restrictions
@@ -135,13 +114,27 @@ export default function SignupPage() {
 
           // Check specifically for admin permission error
           if (roleError.toLowerCase().includes("superuser") || roleError.toLowerCase().includes("admin account")) {
-            setErrors((prev) => ({
-              ...prev,
-              role: "Only administrators can create admin accounts. Please select a different role.",
-            }))
+            newErrors.role = "Only administrators can create admin accounts. Please select a different role."
           } else {
-            setErrors((prev) => ({ ...prev, role: roleError }))
+            newErrors.role = roleError
           }
+          hasSetError = true
+        }
+
+        // Handle password errors with clear messaging
+        if (backendErrors.password) {
+          newErrors.password = Array.isArray(backendErrors.password)
+            ? backendErrors.password[0]
+            : backendErrors.password
+          hasSetError = true
+        }
+
+        // Handle password confirmation errors
+        if (backendErrors.password2) {
+          newErrors.confirmPassword = Array.isArray(backendErrors.password2)
+            ? backendErrors.password2[0]
+            : backendErrors.password2
+          hasSetError = true
         }
 
         // Handle other field errors
@@ -154,10 +147,10 @@ export default function SignupPage() {
         // Process each field mapping
         Object.entries(fieldMappings).forEach(([backendField, frontendField]) => {
           if (backendErrors[backendField]) {
-            const errorMsg = Array.isArray(backendErrors[backendField])
+            newErrors[frontendField] = Array.isArray(backendErrors[backendField])
               ? backendErrors[backendField][0]
               : backendErrors[backendField]
-            setErrors((prev) => ({ ...prev, [frontendField]: errorMsg }))
+            hasSetError = true
           }
         })
 
@@ -165,10 +158,21 @@ export default function SignupPage() {
         if (backendErrors.non_field_errors || backendErrors.detail || backendErrors.error) {
           const message = backendErrors.non_field_errors || backendErrors.detail || backendErrors.error
           setGeneralError(Array.isArray(message) ? message[0] : message)
+          hasSetError = true
         }
+
+        // Set all collected errors
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(newErrors)
+        } else if (!hasSetError) {
+          // If no specific errors were found but we have backend errors
+          setGeneralError("An error occurred during signup. Please try again.")
+        }
+      } else if (error.message) {
+        // Handle error with message
+        setGeneralError(error.message)
       } else {
         // Handle network or unexpected errors
-        toast.error("Failed to create account. Please try again.")
         setGeneralError("An unexpected error occurred. Please try again later.")
       }
     } finally {

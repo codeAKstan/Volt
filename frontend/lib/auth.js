@@ -85,6 +85,7 @@ export function AuthProvider({ children }) {
       // Format error response for better handling
       if (error.response && error.response.data) {
         // Pass the API error directly up to the component
+        error.formattedErrors = error.response.data
         throw error
       } else if (error.request) {
         // The request was made but no response was received
