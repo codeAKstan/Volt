@@ -43,6 +43,14 @@ class SignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"password": "Password fields didn't match."}
             )
+        # Check for admin role permission
+        if attrs.get('role') == 'ADMIN':
+            # Get request from context if available
+            request = self.context.get('request')
+            if not request or not request.user.is_authenticated or not request.user.is_superuser:
+                raise serializers.ValidationError(
+                    {"role": "Only superusers can create admin accounts."}
+                )
         
         return attrs
     
@@ -51,6 +59,11 @@ class SignupSerializer(serializers.ModelSerializer):
         
         user = User.objects.create_user(**validated_data)
         return user
+    def validate_email(self, value):
+        """Extra validation for email to provide clearer error messages"""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
     
 
 class LoginSerializer(serializers.Serializer):

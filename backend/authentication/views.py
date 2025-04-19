@@ -34,6 +34,10 @@ class SignupView(generics.CreateAPIView):
  
         
         return user
+    def get_serializer_context(self):
+        """Add request to serializer context"""
+        context = super().get_serializer_context()
+        return context
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

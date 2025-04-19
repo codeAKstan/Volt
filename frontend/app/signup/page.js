@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2, User, Mail, Lock, Briefcase, Zap, Phone } from "luc
 import { useAuth } from "@/lib/auth"
 import { OAuthButtons } from "@/components/auth/oauth-buttons"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -28,6 +29,7 @@ export default function SignupPage() {
     role: "EMPLOYEE",
   })
   const [errors, setErrors] = useState({})
+  const [generalError, setGeneralError] = useState("")
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -36,15 +38,23 @@ export default function SignupPage() {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: null }))
     }
+    if (generalError) {
+      setGeneralError("")
+    }
   }
 
   const handleRoleChange = (value) => {
     setFormData((prev) => ({ ...prev, role: value }))
+    // Clear role error if it exists
+    if (errors.role) {
+      setErrors((prev) => ({ ...prev, role: null }))
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrors({})
+    setGeneralError("")
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -75,7 +85,57 @@ export default function SignupPage() {
 
       // Handle validation errors
       if (error.response && error.response.data) {
-        setErrors(error.response.data)
+        // Map backend errors to frontend fields
+        const backendErrors = error.response.data
+        
+        // Handle specific error cases
+        if (backendErrors.email) {
+          setErrors(prev => ({ ...prev, email: Array.isArray(backendErrors.email) 
+            ? backendErrors.email[0] 
+            : backendErrors.email }))
+        }
+        
+        if (backendErrors.password) {
+          setErrors(prev => ({ ...prev, password: Array.isArray(backendErrors.password) 
+            ? backendErrors.password[0] 
+            : backendErrors.password }))
+        }
+        
+        if (backendErrors.password2) {
+          setErrors(prev => ({ ...prev, confirmPassword: Array.isArray(backendErrors.password2) 
+            ? backendErrors.password2[0] 
+            : backendErrors.password2 }))
+        }
+        
+        if (backendErrors.role) {
+          setErrors(prev => ({ ...prev, role: Array.isArray(backendErrors.role) 
+            ? backendErrors.role[0] 
+            : backendErrors.role }))
+        }
+
+        if (backendErrors.first_name) {
+          setErrors(prev => ({ ...prev, firstName: Array.isArray(backendErrors.first_name) 
+            ? backendErrors.first_name[0] 
+            : backendErrors.first_name }))
+        }
+
+        if (backendErrors.last_name) {
+          setErrors(prev => ({ ...prev, lastName: Array.isArray(backendErrors.last_name) 
+            ? backendErrors.last_name[0] 
+            : backendErrors.last_name }))
+        }
+
+        if (backendErrors.phone_number) {
+          setErrors(prev => ({ ...prev, phoneNumber: Array.isArray(backendErrors.phone_number) 
+            ? backendErrors.phone_number[0] 
+            : backendErrors.phone_number }))
+        }
+        
+        // General error (non-field errors)
+        if (backendErrors.non_field_errors || backendErrors.detail || backendErrors.error) {
+          const message = backendErrors.non_field_errors || backendErrors.detail || backendErrors.error
+          setGeneralError(Array.isArray(message) ? message[0] : message)
+        }
       } else {
         toast.error("Failed to create account. Please try again.")
       }
@@ -132,10 +192,10 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {errors.general && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
-                {errors.general}
-              </div>
+            {generalError && (
+              <Alert variant="destructive" className="text-sm py-2">
+                <AlertDescription>{generalError}</AlertDescription>
+              </Alert>
             )}
 
             <motion.div
@@ -157,10 +217,10 @@ export default function SignupPage() {
                   onChange={handleChange}
                   required
                   className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
-                    errors.first_name ? "border-destructive" : ""
+                    errors.firstName ? "border-destructive" : ""
                   }`}
                 />
-                {errors.first_name && <p className="text-destructive text-sm mt-1">{errors.first_name}</p>}
+                {errors.firstName && <p className="text-destructive text-sm mt-1">{errors.firstName}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last name</Label>
@@ -172,10 +232,10 @@ export default function SignupPage() {
                   onChange={handleChange}
                   required
                   className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
-                    errors.last_name ? "border-destructive" : ""
+                    errors.lastName ? "border-destructive" : ""
                   }`}
                 />
-                {errors.last_name && <p className="text-destructive text-sm mt-1">{errors.last_name}</p>}
+                {errors.lastName && <p className="text-destructive text-sm mt-1">{errors.lastName}</p>}
               </div>
             </motion.div>
 
@@ -222,10 +282,10 @@ export default function SignupPage() {
                 value={formData.phoneNumber}
                 onChange={handleChange}
                 className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
-                  errors.phone_number ? "border-destructive" : ""
+                  errors.phoneNumber ? "border-destructive" : ""
                 }`}
               />
-              {errors.phone_number && <p className="text-destructive text-sm mt-1">{errors.phone_number}</p>}
+              {errors.phoneNumber && <p className="text-destructive text-sm mt-1">{errors.phoneNumber}</p>}
             </motion.div>
 
             <motion.div
@@ -252,7 +312,9 @@ export default function SignupPage() {
                   <SelectItem value="LEARNER">Learner</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.role && <p className="text-destructive text-sm mt-1">{errors.role}</p>}
+              {errors.role && (
+                <p className="text-destructive text-sm mt-1">{errors.role}</p>
+              )}
             </motion.div>
 
             <motion.div
@@ -296,11 +358,11 @@ export default function SignupPage() {
                 onChange={handleChange}
                 required
                 className={`transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
-                  errors.confirmPassword || errors.password2 ? "border-destructive" : ""
+                  errors.confirmPassword ? "border-destructive" : ""
                 }`}
               />
-              {(errors.confirmPassword || errors.password2) && (
-                <p className="text-destructive text-sm mt-1">{errors.confirmPassword || errors.password2}</p>
+              {errors.confirmPassword && (
+                <p className="text-destructive text-sm mt-1">{errors.confirmPassword}</p>
               )}
             </motion.div>
 

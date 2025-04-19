@@ -1,81 +1,136 @@
+// lib/auth.js
 "use client"
-
 import { createContext, useContext, useState, useEffect } from "react"
 import { authAPI } from "@/lib/api-client"
-import { useRouter } from "next/navigation"
 
-const AuthContext = createContext(null)
+const AuthContext = createContext({})
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const [initialized, setInitialized] = useState(false)
 
+  // Check if user is logged in on initial load
   useEffect(() => {
-    const loadUser = async () => {
+    const checkAuthStatus = async () => {
       try {
-        const userData = await authAPI.getCurrentUser()
-        if (userData) {
-          setUser(userData)
+        // Check if we have stored tokens
+        const token = localStorage.getItem("volt_access_token")
+        
+        if (token) {
+          // Fetch current user
+          const userData = await authAPI.getCurrentUser()
+          if (userData) {
+            setUser(userData)
+          }
         }
       } catch (error) {
-        // Ignore errors related to authentication
-        console.warn("Authentication check failed:", error)
+        console.error("Auth initialization error:", error)
+        // If there's an error, clear tokens and user
+        authAPI.logout()
+        setUser(null)
       } finally {
         setLoading(false)
+        setInitialized(true)
       }
     }
 
-    loadUser()
+    checkAuthStatus()
   }, [])
 
+  // Login function
   const login = async (email, password) => {
-    setLoading(true)
     try {
+      setLoading(true)
       const data = await authAPI.login(email, password)
+      
+      // Store tokens in localStorage
       localStorage.setItem("volt_access_token", data.tokens.access)
       localStorage.setItem("volt_refresh_token", data.tokens.refresh)
-      localStorage.setItem("volt_user", JSON.stringify(data.user))
+      
+      // Set user in state
       setUser(data.user)
+      
+      return data.user
+    } catch (error) {
+      console.error("Login error:", error)
+      throw error
     } finally {
       setLoading(false)
     }
   }
 
+  // Signup function
   const signup = async (userData) => {
-    setLoading(true)
     try {
-      const data = await authAPI.signup(userData)
-      localStorage.setItem("volt_user", JSON.stringify(data.user))
-      setUser(data.user)
+      setLoading(true)
+      
+      // First create the user
+      const response = await authAPI.signup(userData)
+      
+      // Then automatically log them in
+      const loginData = await authAPI.login(userData.email, userData.password)
+      
+      // Store tokens in localStorage
+      localStorage.setItem("volt_access_token", loginData.tokens.access)
+      localStorage.setItem("volt_refresh_token", loginData.tokens.refresh)
+      
+      // Set user in state
+      setUser(loginData.user)
+      
+      return loginData.user
+    } catch (error) {
+      console.error("Signup error:", error)
+      // Format error response for better handling
+      if (error.response && error.response.data) {
+        // Pass the API error directly up to the component
+        throw error
+      } else {
+        // For network errors or other issues
+        throw new Error("Failed to create account. Please try again.")
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const updateProfile = (updatedUser) => {
-    setUser(updatedUser)
-    localStorage.setItem("volt_user", JSON.stringify(updatedUser))
-  }
-
+  // Logout function
   const logout = () => {
     authAPI.logout()
     setUser(null)
-    router.push("/login")
   }
 
-  const value = {
-    user,
-    loading,
-    login,
-    signup,
-    logout,
-    updateProfile,
+  // Update profile function
+  const updateProfile = async (userData) => {
+    try {
+      setLoading(true)
+      const updatedUser = await authAPI.updateProfile(userData)
+      setUser({...user, ...updatedUser})
+      return updatedUser
+    } catch (error) {
+      console.error("Profile update error:", error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        isAuthenticated: !!user,
+        user,
+        loading,
+        initialized,
+        login,
+        signup,
+        logout,
+        updateProfile
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
-export function useAuth() {
-  return useContext(AuthContext)
-}
+export const useAuth = () => useContext(AuthContext)
