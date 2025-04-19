@@ -13,7 +13,7 @@ from booking.serializers import BookingSerializer
 
 User = get_user_model()
 
-# Update the SignupView to provide better error messages
+# Update the SignupView to ensure it always returns JSON
 class SignupView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = SignupSerializer
@@ -57,7 +57,7 @@ class SignupView(generics.CreateAPIView):
             )
         except serializers.ValidationError as e:
             # Format validation errors for better frontend handling
-            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST, content_type='application/json')
     
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
@@ -138,7 +138,7 @@ class UserListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        # Only allow admins to see all users
+        # Only allow admins to see any user
         user = self.request.user
         if user.role == 'ADMIN' or user.is_superuser:
             return User.objects.all()
