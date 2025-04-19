@@ -87,65 +87,89 @@ export default function SignupPage() {
       if (error.response && error.response.data) {
         // Map backend errors to frontend fields
         const backendErrors = error.response.data
-        
-        // Handle specific error cases
+
+        // Handle email errors - specifically check for uniqueness violations
         if (backendErrors.email) {
+          const emailError = Array.isArray(backendErrors.email) ? backendErrors.email[0] : backendErrors.email
+
           // Check specifically for email already exists error
-          const emailError = Array.isArray(backendErrors.email) 
-            ? backendErrors.email[0] 
-            : backendErrors.email
-          
-          // You can check for specific error messages if the backend provides them
-          if (emailError.includes("already exists") || emailError.includes("already in use") || emailError.includes("unique")) {
-            setErrors(prev => ({ ...prev, email: "This email is already registered. Please use a different email or sign in." }))
+          if (
+            emailError.toLowerCase().includes("already exists") ||
+            emailError.toLowerCase().includes("already in use") ||
+            emailError.toLowerCase().includes("unique")
+          ) {
+            setErrors((prev) => ({
+              ...prev,
+              email: "This email is already registered. Please use a different email or sign in.",
+            }))
           } else {
-            setErrors(prev => ({ ...prev, email: emailError }))
+            setErrors((prev) => ({ ...prev, email: emailError }))
           }
         }
-        
+
+        // Handle password errors with clear messaging
         if (backendErrors.password) {
-          setErrors(prev => ({ ...prev, password: Array.isArray(backendErrors.password) 
-            ? backendErrors.password[0] 
-            : backendErrors.password }))
+          const passwordError = Array.isArray(backendErrors.password)
+            ? backendErrors.password[0]
+            : backendErrors.password
+          setErrors((prev) => ({
+            ...prev,
+            password: passwordError,
+          }))
         }
-        
+
+        // Handle password confirmation errors
         if (backendErrors.password2) {
-          setErrors(prev => ({ ...prev, confirmPassword: Array.isArray(backendErrors.password2) 
-            ? backendErrors.password2[0] 
-            : backendErrors.password2 }))
+          const password2Error = Array.isArray(backendErrors.password2)
+            ? backendErrors.password2[0]
+            : backendErrors.password2
+          setErrors((prev) => ({
+            ...prev,
+            confirmPassword: password2Error,
+          }))
         }
-        
+
+        // Handle role errors - specifically for admin role restrictions
         if (backendErrors.role) {
-          setErrors(prev => ({ ...prev, role: Array.isArray(backendErrors.role) 
-            ? backendErrors.role[0] 
-            : backendErrors.role }))
+          const roleError = Array.isArray(backendErrors.role) ? backendErrors.role[0] : backendErrors.role
+
+          // Check specifically for admin permission error
+          if (roleError.toLowerCase().includes("superuser") || roleError.toLowerCase().includes("admin account")) {
+            setErrors((prev) => ({
+              ...prev,
+              role: "Only administrators can create admin accounts. Please select a different role.",
+            }))
+          } else {
+            setErrors((prev) => ({ ...prev, role: roleError }))
+          }
         }
 
-        if (backendErrors.first_name) {
-          setErrors(prev => ({ ...prev, firstName: Array.isArray(backendErrors.first_name) 
-            ? backendErrors.first_name[0] 
-            : backendErrors.first_name }))
+        // Handle other field errors
+        const fieldMappings = {
+          first_name: "firstName",
+          last_name: "lastName",
+          phone_number: "phoneNumber",
         }
 
-        if (backendErrors.last_name) {
-          setErrors(prev => ({ ...prev, lastName: Array.isArray(backendErrors.last_name) 
-            ? backendErrors.last_name[0] 
-            : backendErrors.last_name }))
-        }
+        // Process each field mapping
+        Object.entries(fieldMappings).forEach(([backendField, frontendField]) => {
+          if (backendErrors[backendField]) {
+            const errorMsg = Array.isArray(backendErrors[backendField])
+              ? backendErrors[backendField][0]
+              : backendErrors[backendField]
+            setErrors((prev) => ({ ...prev, [frontendField]: errorMsg }))
+          }
+        })
 
-        if (backendErrors.phone_number) {
-          setErrors(prev => ({ ...prev, phoneNumber: Array.isArray(backendErrors.phone_number) 
-            ? backendErrors.phone_number[0] 
-            : backendErrors.phone_number }))
-        }
-        
         // General error (non-field errors)
         if (backendErrors.non_field_errors || backendErrors.detail || backendErrors.error) {
           const message = backendErrors.non_field_errors || backendErrors.detail || backendErrors.error
           setGeneralError(Array.isArray(message) ? message[0] : message)
         }
       } else {
+        // Handle network or unexpected errors
         toast.error("Failed to create account. Please try again.")
+        setGeneralError("An unexpected error occurred. Please try again later.")
       }
     } finally {
       setIsLoading(false)
@@ -320,9 +344,7 @@ export default function SignupPage() {
                   <SelectItem value="LEARNER">Learner</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.role && (
-                <p className="text-destructive text-sm mt-1">{errors.role}</p>
-              )}
+              {errors.role && <p className="text-destructive text-sm mt-1">{errors.role}</p>}
             </motion.div>
 
             <motion.div
@@ -369,9 +391,7 @@ export default function SignupPage() {
                   errors.confirmPassword ? "border-destructive" : ""
                 }`}
               />
-              {errors.confirmPassword && (
-                <p className="text-destructive text-sm mt-1">{errors.confirmPassword}</p>
-              )}
+              {errors.confirmPassword && <p className="text-destructive text-sm mt-1">{errors.confirmPassword}</p>}
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
