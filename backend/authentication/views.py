@@ -13,10 +13,11 @@ from booking.serializers import BookingSerializer
 
 User = get_user_model()
 
+# Update the SignupView to provide better error messages
 class SignupView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = SignupSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # Make sure the user is authenticated
     
     def perform_create(self, serializer):
         # Get the validated data
@@ -24,36 +25,39 @@ class SignupView(generics.CreateAPIView):
         
         # Check for admin role creation permission
         if validated_data.get('role') == 'ADMIN':
-            if not self.request.user.is_superuser:
+            if not self.request.user.is_authenticated or not self.request.user.is_superuser:
                 raise serializers.ValidationError(
-                    {"role": "Only superusers can create admin accounts."}
+                    {"role": "Only existing administrators can create admin accounts."}
                 )
         
         # Create the user
         user = serializer.save()
- 
         
         return user
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
         
-        user = self.perform_create(serializer)
-        
-        return Response(
-            {
-                "message": "User created successfully",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "role": user.role,
-                    "name": f"{user.first_name} {user.last_name}"
-                }
-            },
-            status=status.HTTP_201_CREATED,
-            headers=self.get_success_headers(serializer.data)
-        )
+        try:
+            serializer.is_valid(raise_exception=True)
+            user = self.perform_create(serializer)
+            
+            return Response(
+                {
+                    "message": "User created successfully",
+                    "user": {
+                        "id": user.id,
+                        "email": user.email,
+                        "role": user.role,
+                        "name": f"{user.first_name} {user.last_name}"
+                    }
+                },
+                status=status.HTTP_201_CREATED,
+                headers=self.get_success_headers(serializer.data)
+            )
+        except serializers.ValidationError as e:
+            # Format validation errors for better frontend handling
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
     
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer

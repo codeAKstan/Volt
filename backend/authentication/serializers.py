@@ -10,13 +10,21 @@ User = get_user_model()
 class SignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
-        validators=[UniqueValidator(queryset=User.objects.all())]
+        validators=[UniqueValidator(
+            queryset=User.objects.all(),
+            message="A user with this email already exists."
+        )]
     )
     password = serializers.CharField(
         write_only=True,
         required=True,
         style={'input_type': 'password'},
-        validators=[validate_password]
+        validators=[validate_password],
+        error_messages={
+            'min_length': 'Password must be at least 8 characters long.',
+            'password_too_common': 'This password is too common.',
+            'password_entirely_numeric': 'Password cannot be entirely numeric.'
+        }
     )
     password2 = serializers.CharField(
         write_only=True,
@@ -32,16 +40,16 @@ class SignupSerializer(serializers.ModelSerializer):
             'phone_number'
         ]
         extra_kwargs = {
-            'first_name': {'required': True},
-            'last_name': {'required': True},
-            'role': {'required': True}
+            'first_name': {'required': True, 'error_messages': {'required': 'First name is required.'}},
+            'last_name': {'required': True, 'error_messages': {'required': 'Last name is required.'}},
+            'role': {'required': True, 'error_messages': {'required': 'Role is required.'}}
         }
     
     def validate(self, attrs):
         # Password confirmation validation
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError(
-                {"password": "Password fields didn't match."}
+                {"password2": "Password fields didn't match."}
             )
         
         return attrs

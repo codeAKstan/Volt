@@ -39,7 +39,7 @@ export function OAuthButtons({ onSuccess }) {
       if (onSuccess) onSuccess()
     } catch (error) {
       console.error("Google login error:", error)
-      toast.error("Failed to sign in with Google")
+      toast.error(error.message || "Failed to sign in with Google")
     } finally {
       setIsGoogleLoading(false)
     }

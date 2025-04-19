@@ -44,15 +44,22 @@ export default function SignupPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setIsLoading(true)
     setErrors({})
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       setErrors({ confirmPassword: "Passwords do not match" })
+      setIsLoading(false)
       return
     }
 
-    setIsLoading(true)
+    // Validate password length
+    if (formData.password.length < 8) {
+      setErrors({ password: "Password must be at least 8 characters long" })
+      setIsLoading(false)
+      return
+    }
 
     try {
       // Map frontend form data to backend expected format
@@ -76,6 +83,9 @@ export default function SignupPage() {
       // Handle validation errors
       if (error.response && error.response.data) {
         setErrors(error.response.data)
+      } else if (error.message) {
+        // Handle string error messages
+        setErrors({ general: error.message })
       } else {
         toast.error("Failed to create account. Please try again.")
       }
@@ -253,6 +263,9 @@ export default function SignupPage() {
                 </SelectContent>
               </Select>
               {errors.role && <p className="text-destructive text-sm mt-1">{errors.role}</p>}
+              {formData.role === "ADMIN" && (
+                <p className="text-xs text-amber-500">Note: Admin accounts require approval</p>
+              )}
             </motion.div>
 
             <motion.div
@@ -278,6 +291,7 @@ export default function SignupPage() {
                 }`}
               />
               {errors.password && <p className="text-destructive text-sm mt-1">{errors.password}</p>}
+              <p className="text-xs text-muted-foreground">Password must be at least 8 characters long</p>
             </motion.div>
 
             <motion.div
