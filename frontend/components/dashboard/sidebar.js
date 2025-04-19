@@ -198,9 +198,9 @@ export function DashboardSidebar() {
               </div>
               <span className="text-lg font-bold">Volt</span>
             </Link>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+            {/* <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
               <X className="h-5 w-5" />
-            </Button>
+            </Button> */}
           </div>
 
           <div className="p-4">

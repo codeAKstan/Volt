@@ -138,24 +138,24 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <header className="mb-8">
-        <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 sm:p-6">
+      <header className="mb-6 sm:mb-8">
+        <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold">{greeting}, {user?.first_name || user?.firstName || "User"}!</h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">{greeting}, {user?.first_name || user?.firstName || "User"}!</h1>
             <p className="text-muted-foreground">
               Here's what's happening with your workspace today.
             </p>
           </div>
 
-          <Button className="gap-2" onClick={() => router.push("/dashboard/workspaces")}>
+          <Button className="w-full gap-2 sm:w-auto" onClick={() => router.push("/dashboard/workspaces")}>
             <Plus size={16} />
             New Booking
           </Button>
         </div>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
           {
             title: "Total Bookings",
@@ -197,15 +197,15 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="mt-8">
+      <div className="mt-6 sm:mt-8">
         <Tabs defaultValue="bookings">
-          <TabsList className="mb-6">
-            <TabsTrigger value="bookings">Upcoming Bookings</TabsTrigger>
-            <TabsTrigger value="workspaces">Available Workspaces</TabsTrigger>
+          <TabsList className="w-full mb-4 sm:mb-6">
+            <TabsTrigger value="bookings" className="flex-1">Upcoming Bookings</TabsTrigger>
+            <TabsTrigger value="workspaces" className="flex-1">Available Workspaces</TabsTrigger>
           </TabsList>
           <TabsContent value="bookings">
             {upcomingBookings.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {upcomingBookings.map((booking, index) => (
                   <BookingCard 
                     key={booking.id}
@@ -218,14 +218,15 @@ export default function DashboardPage() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
+                  <CardTitle className="flex items-center justify-center sm:justify-start">
                     <Calendar className="mr-2 h-5 w-5" />
+                    <span>No Bookings</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="text-center sm:text-left">
                   <h3 className="mb-2 text-lg font-semibold">No upcoming bookings</h3>
                   <p className="mb-4 text-sm text-muted-foreground">You don't have any upcoming bookings</p>
-                  <Button onClick={() => router.push("/dashboard/workspaces")}>
+                  <Button className="w-full sm:w-auto" onClick={() => router.push("/dashboard/workspaces")}>
                     <Plus className="mr-2 h-4 w-4" />
                     Book a workspace
                   </Button>
@@ -235,7 +236,7 @@ export default function DashboardPage() {
 
             {upcomingBookings.length > 0 && (
               <div className="mt-4 text-center">
-                <Button variant="outline" onClick={() => router.push("/dashboard/bookings")}>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push("/dashboard/bookings")}>
                   View all bookings
                 </Button>
               </div>
@@ -243,7 +244,7 @@ export default function DashboardPage() {
           </TabsContent>
           <TabsContent value="workspaces">
             {availableWorkspaces.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {availableWorkspaces.map((workspace, index) => (
                   <WorkspaceCard 
                     key={workspace.id}
@@ -254,11 +255,12 @@ export default function DashboardPage() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
+                  <CardTitle className="flex items-center justify-center sm:justify-start">
                     <LayoutDashboard className="mr-2 h-5 w-5" />
+                    <span>No Spaces</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="text-center sm:text-left">
                   <h3 className="mb-2 text-lg font-semibold">No available workspaces</h3>
                   <p className="mb-4 text-sm text-muted-foreground">All workspaces are currently booked</p>
                 </CardContent>
@@ -267,7 +269,7 @@ export default function DashboardPage() {
 
             {availableWorkspaces.length > 0 && (
               <div className="mt-4 text-center">
-                <Button variant="outline" onClick={() => router.push("/dashboard/workspaces")}>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push("/dashboard/workspaces")}>
                   View all workspaces
                 </Button>
               </div>
@@ -276,15 +278,15 @@ export default function DashboardPage() {
         </Tabs>
       </div>
 
-      <Card className="mt-8">
+      <Card className="mt-6 sm:mt-8">
         <CardHeader>
           <CardTitle>AI Recommendations</CardTitle>
           <CardDescription>Personalized workspace suggestions based on your preferences</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col space-y-4">
-            <div className="flex items-start space-x-4">
-              <div>
+            <div className="flex flex-col space-y-3 sm:flex-row sm:items-start sm:space-x-4 sm:space-y-0">
+              <div className="flex justify-center sm:block">
                 <Avatar>
                   <AvatarFallback>
                     <Clock className="h-4 w-4" />
@@ -300,11 +302,11 @@ export default function DashboardPage() {
                     Would you like to book it?</p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => router.push("/dashboard/bookings/new?workspace=7")}>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button size="sm" className="w-full sm:w-auto" onClick={() => router.push("/dashboard/bookings/new?workspace=7")}>
                     Book Now
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/workspaces")}>
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => router.push("/dashboard/workspaces")}>
                     Show Alternatives
                   </Button>
                 </div>

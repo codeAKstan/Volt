@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { SidebarTrigger } from "@/components/ui/sidebar"
+// import { SidebarTrigger } from "@/components/ui/sidebar"
 import { notificationApi } from "@/lib/api-client"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
@@ -124,7 +124,7 @@ export function DashboardHeader() {
     <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex flex-1 items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <SidebarTrigger className="md:hidden" />
+          {/* <SidebarTrigger className="md:hidden" /> */}
           <div className="hidden md:block">
             <h1 className="text-xl font-semibold">{getPageTitle()}</h1>
           </div>
