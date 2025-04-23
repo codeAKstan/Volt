@@ -222,7 +222,7 @@ export default function Home() {
                 <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
                   Simplify Your{" "}
                   <span className="text-primary relative">
-                    <HeroTypewriter phrases={typewriterPhrases} typingSpeed={80} />
+                    <HeroTypewriter phrases={typewriterPhrases} typingSpeed={60} />
                     <motion.span
                       className="absolute bottom-1 left-0 w-full h-2 bg-primary/20 rounded-full -z-10"
                       initial={{ width: 0 }}
@@ -334,7 +334,7 @@ export default function Home() {
             </motion.div>
 
             <Marquee speed={15} pauseOnHover={true}>
-              {["Acme Inc", "Globex", "Soylent Corp", "Initech", "Umbrella", "ALX", "TechCorp", "Innovate"].map(
+              {["Google", "Globex", "Soylent Corp", "The Garage", "Umbrella", "ALX", "TechCorp", "Innovate"].map(
                 (company, index) => (
                   <motion.div
                     key={company}
@@ -435,9 +435,7 @@ export default function Home() {
             </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto relative">
-              {/* Connecting line */}
-              <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-primary/20 -translate-y-1/2 z-0"></div>
-
+             
               {[
                 {
                   step: "01",

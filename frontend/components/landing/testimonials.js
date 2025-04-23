@@ -15,7 +15,7 @@ const testimonials = [
     author: "Sarah Johnson",
     role: "Operations Manager",
     company: "TechCorp Inc.",
-    avatar: "/placeholder.svg",
+    avatar: "https://api.dicebear.com/6.x/pixel-art/svg?seed=Sarah%20Johnson",
   },
   {
     id: 2,
@@ -24,7 +24,7 @@ const testimonials = [
     author: "Michael Chen",
     role: "Facilities Director",
     company: "Innovate Solutions",
-    avatar: "/placeholder.svg",
+    avatar: "https://api.dicebear.com/6.x/pixel-art/svg?seed=Michael%20Chen",
   },
   {
     id: 3,
@@ -33,7 +33,7 @@ const testimonials = [
     author: "Priya Patel",
     role: "HR Director",
     company: "Global Connect",
-    avatar: "/placeholder.svg",
+    avatar: "https://api.dicebear.com/6.x/pixel-art/svg?seed=Priya%20Patel",
   },
 ]
 
