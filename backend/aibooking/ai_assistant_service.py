@@ -5,6 +5,7 @@ from django.db import connection
 from django.utils import timezone
 from datetime import datetime, timedelta
 from booking.models import WorkSpace, Booking, Location, Feature
+import uuid
 
 class AIBookingAssistant:
     @staticmethod
@@ -287,3 +288,8 @@ class AIBookingAssistant:
         except Exception as e:
             print(f"Error generating AI response: {e}")
             return "I'm sorry, I'm having trouble processing your request. Please try again or contact support."
+        
+    @staticmethod
+    def generate_unique_meeting_id():
+        """Generates a unique meeting ID."""
+        return str(uuid.uuid4())
