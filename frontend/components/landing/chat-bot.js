@@ -58,8 +58,16 @@ const getBotResponse = (message) => {
   }
   
   // Overview questions
-  if (lowerMessage.includes("what is volt") || lowerMessage.includes("about volt") || lowerMessage.includes("volt workspace") || lowerMessage.includes("volt") || lowerMessage.includes("workspace")) {
-    return voltKnowledgeBase.overview
+  if (lowerMessage.includes("what is volt") || lowerMessage.includes("about volt") || lowerMessage.includes("volt workspace")) {
+    return (
+      voltKnowledgeBase.overview +
+      "\n\nKey Features:\n• " + voltKnowledgeBase.features.join("\n• ") +
+      "\n\nObjectives:\n• " + voltKnowledgeBase.objectives.join("\n• ") +
+      "\n\nUnique Value:\n" + voltKnowledgeBase.uniqueValue +
+      "\n\nWhat Makes It Unique:\n• " + voltKnowledgeBase.uniqueFeatures.join("\n• ") +
+      "\n\nUser Journey:\n1. " + voltKnowledgeBase.userJourney.join("\n2. ") +
+      "\n\nAdmin Workflow:\n" + voltKnowledgeBase.adminWorkflow
+    )
   }
   
   // Features questions
@@ -114,7 +122,10 @@ const getBotResponse = (message) => {
 
   // Pricing questions (not explicitly mentioned in PDF, but a common question)
   if (lowerMessage.includes("price") || lowerMessage.includes("cost") || lowerMessage.includes("plan") || lowerMessage.includes("subscription")) {
-    return "For the most current pricing information, please visit our website or contact our sales team. Volt Workspace offers flexible plans designed to meet the needs of individuals, teams, and workspace providers."
+    return (
+      "Volt Workspace offers flexible pricing plans tailored to individuals, teams, and workspace providers. " +
+      "Visit our website for current rates or contact our sales team for enterprise options."
+    )
   }
   
   // Demo questions
@@ -124,6 +135,27 @@ const getBotResponse = (message) => {
   
   // Fallback response
   return "I'm not sure I understand that question. You can ask me about what Volt Workspace is, its features, how the booking process works, how workspace providers can use it, or any other aspect of our platform. How can I help you learn more about Volt Workspace?"
+}
+
+// TypewriterText component to animate bot messages
+function TypewriterText({ text, speed = 20, onDone }) {
+  const [displayed, setDisplayed] = useState("")
+  const indexRef = useRef(0)
+  useEffect(() => {
+    setDisplayed("")
+    indexRef.current = 0
+    const id = setInterval(() => {
+      const next = indexRef.current + 1
+      setDisplayed(text.slice(0, next))
+      indexRef.current = next
+      if (next >= text.length) {
+        clearInterval(id)
+        if (onDone) onDone()
+      }
+    }, speed)
+    return () => clearInterval(id)
+  }, [text, speed])
+  return <p className="text-sm whitespace-pre-line">{displayed}</p>
 }
 
 export function ChatBot() {
@@ -176,126 +208,130 @@ export function ChatBot() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.8 }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: 1,
-              height: isMinimized ? "auto" : "500px",
-            }}
-            exit={{ opacity: 0, y: 20, scale: 0.8 }}
-            transition={{ duration: 0.3 }}
-            className="mb-4"
-          >
-            <Card className="w-[350px] shadow-lg border-primary/20">
-              <CardHeader className="p-4 border-b flex flex-row items-center justify-between bg-primary/5">
-                <div className="flex items-center">
-                  <Avatar className="h-8 w-8 mr-2">
-                    <AvatarImage src="/placeholder.svg" />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      <Zap className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-medium text-sm">Volt Assistant</h3>
-                    <p className="text-xs text-muted-foreground">Online</p>
+    <>
+      {/* Transparent backdrop to close chat on outside click */}
+      {isOpen && <div className="fixed inset-0 z-40" onClick={toggleChat} />}
+      <div className="fixed bottom-4 right-4 z-50">
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.8 }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                height: isMinimized ? "auto" : "500px",
+              }}
+              exit={{ opacity: 0, y: 20, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+              className="mb-4"
+            >
+              <Card className="w-[400px] shadow-2xl rounded-xl bg-white/90 backdrop-blur-md border border-gray-200">
+                <CardHeader className="p-4 flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-t-xl">
+                  <div className="flex items-center">
+                    <Avatar className="h-8 w-8 mr-2">
+                      <AvatarImage src="/placeholder.svg" />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        <Zap className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-medium text-sm">Volt Assistant</h3>
+                      <p className="text-xs text-muted-foreground">Online</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Button variant="ghost" size="icon" onClick={toggleMinimize} className="h-8 w-8">
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={toggleChat} className="h-8 w-8">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
+                  <div className="flex items-center space-x-1">
+                    <Button variant="ghost" size="icon" onClick={toggleMinimize} className="h-8 w-8">
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={toggleChat} className="h-8 w-8">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
 
-              {!isMinimized && (
-                <>
-                  <CardContent className="p-4 h-[350px] overflow-y-auto">
-                    <AnimatePresence>
-                      {messages.map((message) => (
-                        <motion.div
-                          key={message.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} mb-4`}
-                        >
-                          {message.sender === "bot" && (
+                {!isMinimized && (
+                  <>
+                    <CardContent className="p-4 h-[350px] overflow-y-auto">
+                      <AnimatePresence>
+                        {messages.map((message) => (
+                          <motion.div
+                            key={message.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} mb-4`}
+                          >
+                            {message.sender === "bot" && (
+                              <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0">
+                                <AvatarFallback className="bg-primary text-primary-foreground">
+                                  <Zap className="h-4 w-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
+                            <div className={`rounded-lg px-3 py-2 max-w-[80%] ${message.sender === "user" ? "bg-indigo-500 text-white" : "bg-gray-100 text-gray-800"}`}>
+                              {message.sender === "user" ? (
+                                <p className="text-sm whitespace-pre-line">{message.content}</p>
+                              ) : (
+                                <TypewriterText text={message.content} />
+                              )}
+                            </div>
+                          </motion.div>
+                        ))}
+                        {isTyping && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex justify-start mb-4"
+                          >
                             <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0">
                               <AvatarFallback className="bg-primary text-primary-foreground">
                                 <Zap className="h-4 w-4" />
                               </AvatarFallback>
                             </Avatar>
-                          )}
-                          <div
-                            className={`rounded-lg px-3 py-2 max-w-[80%] ${
-                              message.sender === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-line">{message.content}</p>
-                          </div>
-                        </motion.div>
-                      ))}
-                      {isTyping && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="flex justify-start mb-4"
-                        >
-                          <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0">
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              <Zap className="h-4 w-4" />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="rounded-lg px-3 py-2 bg-muted">
-                            <div className="flex space-x-1">
-                              <div className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce [animation-delay:-0.3s]"></div>
-                              <div className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce [animation-delay:-0.15s]"></div>
-                              <div className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce"></div>
+                            <div className="rounded-lg px-3 py-2 bg-muted">
+                              <div className="flex space-x-1">
+                                <div className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce"></div>
+                              </div>
                             </div>
-                          </div>
-                        </motion.div>
-                      )}
-                      <div ref={messagesEndRef} />
-                    </AnimatePresence>
-                  </CardContent>
-                  <CardFooter className="p-3 border-t">
-                    <div className="flex w-full space-x-2">
-                      <Input
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Ask about Volt Workspace..."
-                        className="flex-1"
-                      />
-                      <Button size="icon" onClick={handleSendMessage} disabled={!inputValue.trim()}>
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardFooter>
-                </>
-              )}
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                          </motion.div>
+                        )}
+                        <div ref={messagesEndRef} />
+                      </AnimatePresence>
+                    </CardContent>
+                    <CardFooter className="p-3 border-t">
+                      <div className="flex w-full space-x-2">
+                        <Input
+                          value={inputValue}
+                          onChange={(e) => setInputValue(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Ask about Volt Workspace..."
+                          className="flex-1"
+                        />
+                        <Button size="icon" onClick={handleSendMessage} disabled={!inputValue.trim()}>
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </>
+                )}
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      <motion.button
-        onClick={toggleChat}
-        className="bg-primary text-primary-foreground rounded-full p-3 shadow-lg flex items-center justify-center"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-      >
-        <MessageSquare className="h-6 w-6" />
-      </motion.button>
-    </div>
+        <motion.button
+          onClick={toggleChat}
+          className="bg-primary text-primary-foreground rounded-full p-3 shadow-lg flex items-center justify-center"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          <MessageSquare className="h-6 w-6" />
+        </motion.button>
+      </div>
+    </>
   )
 }
