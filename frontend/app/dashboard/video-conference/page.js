@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { VideoConferenceRoom } from "@/components/video-conference/video-room"
-import { Video, Users, Calendar, Clock, Plus, Copy, LinkIcon, Share2 } from "lucide-react"
+import { Video, Users, Calendar, Clock, Plus, Copy, LinkIcon, Share2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { meetingApi } from "@/lib/api-client"
 
 export default function VideoConferencePage() {
   const router = useRouter()
@@ -21,6 +22,7 @@ export default function VideoConferencePage() {
   const [scheduledTime, setScheduledTime] = useState("")
   const [generatedMeetingId, setGeneratedMeetingId] = useState("")
   const [meetingLink, setMeetingLink] = useState("")
+  const [creatingMeeting, setCreatingMeeting] = useState(false)
 
   // Check if there's a join parameter in the URL
   useEffect(() => {
@@ -37,12 +39,19 @@ export default function VideoConferencePage() {
     setInMeeting(true)
   }
 
-  const handleCreateMeeting = () => {
-    // Generate a random room ID
-    const newRoomId = `volt-${Math.random().toString(36).substring(2, 8)}`
-    setRoomId(newRoomId)
-    toast.success(`Created new meeting: ${newRoomId}`)
-    setInMeeting(true)
+  const handleCreateMeeting = async () => {
+    setCreatingMeeting(true)
+    try {
+      const response = await meetingApi.createMeeting()
+      setRoomId(response.meeting_id)
+      toast.success(`Created new meeting: ${response.meeting_id}`)
+      setInMeeting(true)
+    } catch (error) {
+      console.error("Error creating meeting:", error)
+      toast.error("Failed to create meeting")
+    } finally {
+      setCreatingMeeting(false)
+    }
   }
 
   const handleGenerateMeetingLink = () => {
@@ -154,9 +163,18 @@ export default function VideoConferencePage() {
                         <p className="text-sm text-muted-foreground mb-4">
                           Create a new meeting and invite others to join
                         </p>
-                        <Button onClick={handleCreateMeeting}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Meeting
+                        <Button onClick={handleCreateMeeting} disabled={creatingMeeting}>
+                          {creatingMeeting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="mr-2 h-4 w-4" />
+                              Create Meeting
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
