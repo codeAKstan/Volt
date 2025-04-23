@@ -539,7 +539,7 @@ export const bookingApi = {
             ? `Desk Booking: ${booking.desk.name}`
             : `Meeting Room: ${booking.meeting_room?.name || "Unknown"}`),
         workspaceId: booking.work_space?.id,
-        workspaceName: booking.desk?.name || booking.meeting_room?.name || booking.workspace_name|| "Unknown",
+        workspaceName: booking.desk?.name || booking.meeting_room?.name || booking.workspace_name || "Unknown",
         date: booking.date || new Date(booking.start_time).toISOString().split("T")[0],
         startTime: booking.start_time
           ? typeof booking.start_time === "string" && booking.start_time.includes("T")
@@ -711,6 +711,23 @@ export const emailService = {
         success: false,
         error: error.message,
       }
+    }
+  },
+}
+
+/**
+ * Meeting API methods
+ */
+export const meetingApi = {
+  createMeeting: async () => {
+    try {
+      const response = await fetchAPI("/ai/meetings/create/", {
+        method: "POST",
+      })
+      return response
+    } catch (error) {
+      console.error("Error creating meeting:", error)
+      throw error
     }
   },
 }

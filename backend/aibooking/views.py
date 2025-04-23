@@ -13,7 +13,13 @@ from booking.models import WorkSpace, Booking
 from booking.serializers import WorkSpaceSerializer, BookingSerializer
 from .ai_assistant_service import AIBookingAssistant
 from .embedding_service import EmbeddingService
+from rest_framework.decorators import api_view
 
+@api_view(['POST'])
+def create_meeting(request):
+    """API endpoint to create a new meeting."""
+    meeting_id = AIBookingAssistant.generate_unique_meeting_id()
+    return Response({'meeting_id': meeting_id}, status=status.HTTP_201_CREATED)
 class WorkSpaceViewSet(viewsets.ModelViewSet):
     queryset = WorkSpace.objects.all()
     serializer_class = WorkSpaceSerializer
