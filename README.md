@@ -1,73 +1,115 @@
-# **Volt**  
+# Volt Workspace
 
+## Project Overview
+Volt is a scalable booking platform that simplifies workspace reservations, manages availability, and provides data-driven insights for efficient office space usage.
+![alt text](image.png)
+## Purpose
+Build a resilient system for booking desks, meeting rooms, and event halls with real-time updates, role-based access control, and analytics.
 
+## Tech Stack
+### Frontend
+- Next.js
+- Tailwind CSS
+- React Context API, custom hooks
 
-## **Tech Stack**  
-### **Frontend**  
-- **Nextjs** + **Tailwind CSS** for the user interface.  
+### Backend
+- Django REST Framework (Python)
+- PostgreSQL
+- JWT for authentication
 
-### **Backend**  
-- **Django** (Python) for RESTful APIs.  
-- **PostgreSQL** for database management.  
+## Core Features
+1. **User Authentication**
+   - Sign up, login, secure account management
+   - Role-based access: Admin, Employee, Learner
 
+2. **Booking System**
+   - Browse available workspaces (desks, meeting rooms, event halls)
+   - Book, cancel, reschedule, extend reservations in real-time
 
-### **Authentication**  
-- **JWT (JSON Web Tokens)** for secure session management.  
+3. **Notifications & Reminders**
+   - Email notifications for confirmations, reminders, conflicts, cancellations
 
----
+4. **Reporting & Analytics**
+   - Admin dashboard tracks usage, peak hours, occupancy trends
 
-## **Installation**  
-Follow these steps to set up the project locally:  
+5. **User Roles**
+   - Admin: full control and reports
+   - Employee / Learner: booking access, personal dashboard
 
-### **1. Clone the Repository**  
-```bash
+## Other Features
+- **Profile Management**: Edit profile, booking preferences, history
+- **Availability Dashboard**: Real-time overview of spaces
+- **Calendar Integration**: Sync with Google Calendar / Outlook
+- **Pricing & Payments**: Define pricing, integrate payment gateway
+- **Mobile Compatibility**: Responsive UI or mobile app
+- **Third-party Integrations**: Google Workspace, Zoom, Slack
+
+## AI-Powered Features
+1. **Smart Booking Suggestions**
+   - Personalized workspace recommendations based on user history
+2. **Natural Language Booking Assistant (Chatbot)**
+   - Chat interface for conversational booking requests
+
+## Project Setup
+
+### Prerequisites
+- Node.js (>=14)
+- Python (>=3.8)
+- Yarn or npm
+- PostgreSQL
+
+### Installation
+
+```powershell
+# Clone repository
 git clone https://github.com/codeAKstan/Volt.git
 cd Volt
-```
 
-### **2. Frontend setup**
-### **- Navigate to the frontend folder:**
-```bash
+# Frontend
 cd frontend
-```
-### **- Install dependencies:**
-```bash
 npm install
-```
-### **- Start the development server:**
-```bash
 npm run dev
-```
 
-### **3. Backend Setup**
-
-### **- Navigate to the backend folder:**
-```bash
-cd ../backend/
-```
-
-### **- Create a virtual environment and activate it:**
-```bash
+# Backend
+cd ../backend
 python -m venv venv
-source venv/bin/activate  # On macOS/Linux
-venv\Scripts\activate     # On Windows
-```
-### **- Install dependencies:**
-```bash
+.\venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### **4. Setup the database**
-    Create a mysql database named volt_db.
-
-    Update the database settings in settings.py.
-
-### **5. Run migration:**
-```bash
+# Configure database in backend/backend/settings.py
 python manage.py migrate
-```
-
-### **6. Start the development server:**
-```
 python manage.py runserver
 ```
+
+## Folder Structure
+```
+Volt/
+├── frontend/      # Next.js frontend
+├── backend/       # Django REST API
+└── README.md
+```
+
+## Tasks & Roadmap
+
+### Backend
+- User auth with roles (JWT, OAuth)
+- Booking CRUD APIs
+- Admin analytics endpoints
+- Notification system (email, SMS)
+- Data models: users, spaces, bookings, preferences, payments
+
+### Frontend
+- Landing page
+- Booking dashboard
+- Admin analytics panel
+- Profile/settings page
+- Responsive design
+
+### AI Features
+- Smart suggestions
+- Chatbot assistant
+
+## Contributing
+Contributions welcome! Please open issues and PRs.
+
+## License
+MIT
