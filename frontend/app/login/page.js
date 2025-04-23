@@ -98,14 +98,14 @@ export default function LoginPage() {
             <p className="text-foreground/70 mt-2">Sign in to your account</p>
           </div>
 
-          <OAuthButtons onSuccess={handleOAuthSuccess} />
+          {/* <OAuthButtons onSuccess={handleOAuthSuccess} /> */}
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
+              {/* <Separator className="w-full" /> */}
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-card px-2 text-xs text-muted-foreground">OR CONTINUE WITH EMAIL</span>
+              {/* <span className="bg-card px-2 text-xs text-muted-foreground">OR CONTINUE WITH EMAIL</span> */}
             </div>
           </div>
 
