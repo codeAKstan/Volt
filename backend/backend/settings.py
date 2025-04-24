@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'aibooking',
 
     'django_celery_results',
+    'channels',
+    'video_conference',
 ]
 
 MIDDLEWARE = [
@@ -83,6 +85,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
+ASGI_APPLICATION = 'backend.asgi.application'
+CHANNEL_LAYERS = {
+    'default': {
+        # 'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        # For production, use Redis:
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379/0')],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -194,7 +207,7 @@ SIMPLE_JWT = {
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = ['https://volt-coral.vercel.app/']
+CORS_ALLOWED_ORIGINS = ['https://volt-coral.vercel.app']
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
     'DELETE',

@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/booking/', include('booking.urls')),
     path('api/email/', include('email_notifications.urls')),
     path('api/ai/', include('aibooking.urls')),
+    path('api/video-conference/', include('video_conference.urls')),
 ]
 
 if settings.DEBUG:
