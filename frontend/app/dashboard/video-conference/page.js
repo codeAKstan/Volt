@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { VideoConferenceRoom } from "@/components/video-conference/video-room"
 import { Video, Users, Calendar, Clock, Plus, Copy, LinkIcon, Share2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { meetingApi } from "@/lib/api-client"
 
 export default function VideoConferencePage() {
   const router = useRouter()
@@ -42,9 +41,10 @@ export default function VideoConferencePage() {
   const handleCreateMeeting = async () => {
     setCreatingMeeting(true)
     try {
-      const response = await meetingApi.createMeeting()
-      setRoomId(response.meeting_id)
-      toast.success(`Created new meeting: ${response.meeting_id}`)
+      // Generate a random meeting ID
+      const newMeetingId = `volt-${Math.random().toString(36).substring(2, 8)}`
+      setRoomId(newMeetingId)
+      toast.success(`Created new meeting: ${newMeetingId}`)
       setInMeeting(true)
     } catch (error) {
       console.error("Error creating meeting:", error)
@@ -270,18 +270,18 @@ export default function VideoConferencePage() {
             {[
               {
                 icon: <Clock className="h-10 w-10 text-primary" />,
-                title: "Quick Meetings",
-                description: "Start an instant meeting with your team members",
+                title: "Real-Time Communication",
+                description: "Connect instantly with WebRTC peer-to-peer technology",
               },
               {
                 icon: <Calendar className="h-10 w-10 text-primary" />,
-                title: "Scheduled Conferences",
-                description: "Plan ahead with scheduled video conferences",
+                title: "Screen Sharing",
+                description: "Share your screen with all participants in the meeting",
               },
               {
                 icon: <Users className="h-10 w-10 text-primary" />,
                 title: "Team Collaboration",
-                description: "Connect with up to 50 participants simultaneously",
+                description: "Chat and collaborate with your team in real-time",
               },
             ].map((feature, index) => (
               <Card key={index}>

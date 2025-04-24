@@ -732,4 +732,83 @@ export const meetingApi = {
   },
 }
 
+// Meeting API functions
+export const meetingApi2 = {
+  // Create a new meeting room
+  createMeeting: async (name = "") => {
+    try {
+      // For demo purposes, generate a random meeting ID
+      const meetingId = `volt-${Math.random().toString(36).substring(2, 8)}`
+
+      // In a real app, this would call the backend API
+      // const response = await fetch('/api/video-conference/rooms/', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${getAuthToken()}`
+      //   },
+      //   body: JSON.stringify({ name })
+      // });
+      // const data = await response.json();
+      // return data;
+
+      // Mock response
+      return {
+        meeting_id: meetingId,
+        name: name || `Meeting ${meetingId}`,
+        created_at: new Date().toISOString(),
+      }
+    } catch (error) {
+      console.error("Error creating meeting:", error)
+      throw error
+    }
+  },
+
+  // Join a meeting room
+  joinMeeting: async (roomId) => {
+    try {
+      // In a real app, this would call the backend API
+      // const response = await fetch(`/api/video-conference/rooms/${roomId}/join/`, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Authorization': `Bearer ${getAuthToken()}`
+      //   }
+      // });
+      // const data = await response.json();
+      // return data;
+
+      // Mock response
+      return {
+        room_id: roomId,
+        name: `Meeting ${roomId}`,
+        joined_at: new Date().toISOString(),
+      }
+    } catch (error) {
+      console.error("Error joining meeting:", error)
+      throw error
+    }
+  },
+
+  // Leave a meeting room
+  leaveMeeting: async (roomId) => {
+    try {
+      // In a real app, this would call the backend API
+      // const response = await fetch(`/api/video-conference/rooms/${roomId}/leave/`, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Authorization': `Bearer ${getAuthToken()}`
+      //   }
+      // });
+      // const data = await response.json();
+      // return data;
+
+      // Mock response
+      return { status: "success" }
+    } catch (error) {
+      console.error("Error leaving meeting:", error)
+      throw error
+    }
+  },
+}
+
 export default fetchAPI
