@@ -24,7 +24,7 @@ export default function AvailabilityPage() {
   const [workspaces, setWorkspaces] = useState([])
   const [bookings, setBookings] = useState([])
   const [date, setDate] = useState(new Date())
-  const [view, setView] = useState("day")
+  const [view, setView] = useState("week")
   const [searchQuery, setSearchQuery] = useState("")
   const [spaceType, setSpaceType] = useState("")
   const [location, setLocation] = useState("")
@@ -149,9 +149,9 @@ export default function AvailabilityPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
+      <div className="flex flex-col justify-between space-y-1 md:flex-row md:items-center md:space-y-0">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Availability Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Availability Dashboard</h2>
           <p className="text-muted-foreground">Real-time overview of workspace availability</p>
         </div>
         <div className="flex items-center space-x-2">
@@ -295,19 +295,10 @@ export default function AvailabilityPage() {
                           className="hover:bg-muted/50"
                         >
                           <td className="border-b p-2">
-                            <div className="font-medium">{workspace.name}</div>
-                            <div className="flex items-center text-xs text-muted-foreground">
-                              <Badge variant="outline" className="mr-1">
-                                {workspace.type.charAt(0).toUpperCase() + workspace.type.slice(1)}
-                              </Badge>
-                              <MapPin className="ml-1 mr-0.5 h-3 w-3" />
+                            <div className="font-medium text-lg text-gray-900">{workspace.name}</div>
+                            <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                              <MapPin className="mr-1 h-4 w-4" />
                               {workspace.location}
-                              {workspace.capacity && (
-                                <>
-                                  <Users className="ml-1 mr-0.5 h-3 w-3" />
-                                  {workspace.capacity}
-                                </>
-                              )}
                             </div>
                           </td>
                           {timeSlots.map((slot) => {

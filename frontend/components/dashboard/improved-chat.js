@@ -6,15 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Bot, User, Sparkles, Paperclip, Mic, ImageIcon, Copy, AlertCircle, MapPin, Building } from "lucide-react"
+import { Send, Bot, User, Sparkles, Paperclip, Mic, ImageIcon, Copy, AlertCircle, MapPin, Building, Loader2, X } from "lucide-react"
 import { useAuth } from "@/lib/auth"
-import { TypewriterEffect } from "@/components/ui/typewriter-effect"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import { sendMessageToAI } from "@/lib/api"
 import { workspaceApi, bookingApi } from "@/lib/api-client"
 import { format } from "date-fns"
-import { Loader2 } from "lucide-react"
 
 // Fallback responses in case of API failure
 const fallbackResponses = {
@@ -636,7 +634,7 @@ export function ImprovedChat() {
             Volt AI Assistant
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
           <AnimatePresence mode="wait">
             {messages.map((message) => (
               <motion.div
@@ -647,65 +645,42 @@ export function ImprovedChat() {
                 className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} mb-4`}
               >
                 <div
-                  className={`flex items-start gap-2 max-w-[80%] group ${
-                    message.sender === "user" ? "flex-row-reverse" : ""
-                  }`}
-                >
-                  <Avatar className="mt-1 h-8 w-8">
-                    {message.sender === "ai" ? (
-                      <>
-                        <AvatarImage src="/placeholder.svg" />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          <Bot className="h-4 w-4" />
-                        </AvatarFallback>
-                      </>
-                    ) : (
-                      <>
-                        <AvatarImage src={user?.image || "/placeholder.svg"} />
-                        <AvatarFallback>{user?.firstName?.charAt(0) || <User className="h-4 w-4" />}</AvatarFallback>
-                      </>
-                    )}
-                  </Avatar>
-                  <div
-                    className={`rounded-lg px-4 py-2 relative ${
-                      message.sender === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : message.error
-                          ? "bg-destructive/10 border border-destructive/20"
-                          : "bg-muted"
-                    }`}
-                  >
-                    {message.sender === "ai" && message.isTyping ? (
-                      <div className="whitespace-pre-wrap break-words max-w-[500px]">
-                        {message.error && <AlertCircle className="h-4 w-4 text-destructive inline mr-2" />}
-                        <TypewriterEffect
-                          text={message.content}
-                          speed={20}
-                          onComplete={() => handleTypewriterComplete(message.id)}
-                        />
-                      </div>
-                    ) : (
-                      <div className="whitespace-pre-wrap break-words max-w-[500px]">
-                        {message.error && <AlertCircle className="h-4 w-4 text-destructive inline mr-2" />}
-                        {message.content}
-                      </div>
-                    )}
-                    {message.sender === "ai" && message.completed && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute -right-10 top-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handleCopyMessage(message.content)}
-                      >
-                        <Copy className="h-4 w-4" />
+                  className={`px-4 py-2 relative ${
+                    message.sender === "user"
+                      ? "bg-indigo-600 text-white rounded-lg rounded-bl-none"
+                      : message.error
+                        ? "bg-red-100 border border-red-200 rounded-lg rounded-br-none text-red-700"
+                        : "bg-gray-100 text-gray-800 rounded-lg rounded-br-none"
+                  } max-w-[75%]`}>
+                  {message.sender === "ai" && message.isTyping ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="animate-spin h-4 w-4 text-primary" />
+                      <span>Loading...</span>
+                      <Button variant="ghost" size="icon" onClick={stopAllProcesses}>
+                        <X className="h-4 w-4 text-destructive" />
                       </Button>
-                    )}
-                    {message.timestamp && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap break-words max-w-[500px]">
+                      {message.error && <AlertCircle className="h-4 w-4 text-destructive inline mr-2" />}
+                      {message.content}
+                    </div>
+                  )}
+                  {message.sender === "ai" && message.completed && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute -right-10 top-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleCopyMessage(message.content)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {message.timestamp && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -780,10 +755,13 @@ export function ImprovedChat() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="rounded-lg px-4 py-2 bg-muted">
-                    <div className="flex items-center space-x-2">
-                      <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-                      <span>Volt AI is thinking...</span>
-                    </div>
+                      <div className="flex items-center space-x-2">
+                        <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                        <span>Volt AI is thinking...</span>
+                        <Button variant="ghost" size="icon" onClick={stopAllProcesses}>
+                          <X className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                   </div>
                 </div>
               </motion.div>
