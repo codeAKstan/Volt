@@ -64,16 +64,78 @@ export function VideoConferenceRoom({ roomId, onClose }) {
 
   // Initialize WebSocket connection
   useEffect(() => {
-    // Use secure WebSocket if on HTTPS
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-    const wsUrl = `${protocol}//${window.location.host}/ws/video-conference/${roomId}/`
-
-    // For development with separate backend
-    // const wsUrl = `ws://localhost:8000/ws/video-conference/${roomId}/`;
+    // Determine the appropriate WebSocket URL
+    let wsUrl
+    if (process.env.NODE_ENV === "production") {
+      // Production environment - use relative URL that will be properly routed
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+      wsUrl = `${protocol}//${window.location.host}/ws/video-conference/${roomId}/`
+    } else {
+      // Development environment - connect directly to Django backend
+      wsUrl = `ws://localhost:8000/ws/video-conference/${roomId}/`
+    }
 
     console.log("Connecting to WebSocket:", wsUrl)
 
     socketRef.current = new WebSocket(wsUrl)
+
+    // Add reconnection logic
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const reconnectInterval = 3000 // 3 seconds
+
+    const attemptReconnect = () => {
+      if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++
+        console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
+
+        setTimeout(() => {
+          console.log("Reconnecting to WebSocket...")
+          socketRef.current = new WebSocket(wsUrl)
+
+          // Re-attach event handlers
+          socketRef.current.onopen = () => {
+            console.log("WebSocket reconnected")
+            reconnectAttempts = 0
+
+            // Re-join the room
+            sendToSignalingServer({
+              type: "join",
+              roomId,
+              userId: user?.id || "anonymous",
+              userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
+              userAvatar: user?.image || "/placeholder.svg",
+            })
+          }
+
+          socketRef.current.onclose = handleSocketClose
+          socketRef.current.onerror = handleSocketError
+          socketRef.current.onmessage = handleSocketMessage
+        }, reconnectInterval)
+      } else {
+        console.error("Max reconnection attempts reached")
+        toast.error("Could not connect to the meeting server. Please try again later.")
+      }
+    }
+
+    const handleSocketClose = (event) => {
+      console.log("WebSocket connection closed", event)
+
+      if (!event.wasClean) {
+        attemptReconnect()
+      }
+    }
+
+    const handleSocketError = (error) => {
+      console.error("WebSocket error:", error)
+      toast.error("Connection error. Please try again.")
+    }
+
+    const handleSocketMessage = (event) => {
+      const message = JSON.parse(event.data)
+      console.log("WebSocket message received:", message)
+      handleSignalingMessage(message)
+    }
 
     socketRef.current.onopen = () => {
       console.log("WebSocket connection established")
@@ -87,21 +149,9 @@ export function VideoConferenceRoom({ roomId, onClose }) {
       })
     }
 
-    socketRef.current.onmessage = (event) => {
-      const message = JSON.parse(event.data)
-      console.log("WebSocket message received:", message)
-
-      handleSignalingMessage(message)
-    }
-
-    socketRef.current.onerror = (error) => {
-      console.error("WebSocket error:", error)
-      toast.error("Connection error. Please try again.")
-    }
-
-    socketRef.current.onclose = () => {
-      console.log("WebSocket connection closed")
-    }
+    socketRef.current.onclose = handleSocketClose
+    socketRef.current.onerror = handleSocketError
+    socketRef.current.onmessage = handleSocketMessage
 
     return () => {
       // Clean up WebSocket connection
@@ -323,9 +373,12 @@ export function VideoConferenceRoom({ roomId, onClose }) {
   const sendToSignalingServer = (message) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify(message))
+      return true
     } else {
       console.error("WebSocket is not connected")
       toast.error("Connection lost. Trying to reconnect...")
+      attemptReconnect()
+      return false
     }
   }
 
@@ -732,8 +785,18 @@ export function VideoConferenceRoom({ roomId, onClose }) {
     }
   }
 
+  // Add reconnection logic
+  const reconnectAttempts = 0
+  const maxReconnectAttempts = 5
+
   return (
     <div className="relative h-[calc(100vh-10rem)]">
+      {/* Connection status message */}
+      {reconnectAttempts > 0 && (
+        <div className="absolute top-0 left-0 right-0 bg-yellow-500 text-white p-2 text-center z-50">
+          Connection issues detected. Attempting to reconnect... ({reconnectAttempts}/{maxReconnectAttempts})
+        </div>
+      )}
       {/* Meeting info */}
       <div className="flex justify-between items-center mb-4 p-3 bg-muted/30 rounded-lg">
         <div>
