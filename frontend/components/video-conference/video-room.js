@@ -1,11 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar } from "@/components/ui/avatar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { toast } from "sonner"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { toast } from "react-hot-toast"
+import { useTheme } from "next-themes"
 import {
   Video,
   VideoOff,
@@ -14,25 +18,29 @@ import {
   Phone,
   MessageSquare,
   Users,
-  ScreenShare,
   StopCircle,
   Copy,
-  X,
-  LinkIcon,
-  Share2,
+  Check,
+  Maximize,
+  Minimize,
+  Volume2,
+  VolumeX,
+  Share,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 
 // WebRTC configuration
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-  ],
-}
+const ICE_SERVERS = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+]
 
 export function VideoConferenceRoom({ roomId, onClose }) {
+  const router = useRouter()
+  const { theme } = useTheme()
   const { user } = useAuth()
   const [isCameraOn, setIsCameraOn] = useState(true)
   const [isMicOn, setIsMicOn] = useState(true)
@@ -47,6 +55,10 @@ export function VideoConferenceRoom({ roomId, onClose }) {
   const [screenStream, setScreenStream] = useState(null)
   const [peerConnections, setPeerConnections] = useState({})
   const [remoteStreams, setRemoteStreams] = useState({})
+  const [activeTab, setActiveTab] = useState("video")
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [isFullScreen, setIsFullScreen] = useState(false)
+  const [isMuted, setIsMuted] = useState({})
 
   const localVideoRef = useRef(null)
   const screenShareRef = useRef(null)
@@ -54,6 +66,8 @@ export function VideoConferenceRoom({ roomId, onClose }) {
   const peerConnectionsRef = useRef({})
   const localStreamRef = useRef(null)
   const screenStreamRef = useRef(null)
+  const chatContainerRef = useRef(null)
+  const videoContainerRef = useRef(null)
 
   // Generate meeting link
   useEffect(() => {
@@ -64,355 +78,141 @@ export function VideoConferenceRoom({ roomId, onClose }) {
 
   // Initialize WebSocket connection
   useEffect(() => {
-    // Determine the appropriate WebSocket URL
-    let wsUrl
-    if (process.env.NODE_ENV === "production") {
-      // Production environment - use relative URL that will be properly routed
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-      wsUrl = `${protocol}//${window.location.host}/ws/video-conference/${roomId}/`
-    } else {
-      // Development environment - connect directly to Django backend
-      wsUrl = `ws://localhost:8000/ws/video-conference/${roomId}/`
-    }
-
-    console.log("Connecting to WebSocket:", wsUrl)
-
-    socketRef.current = new WebSocket(wsUrl)
-
-    // Add reconnection logic
-    let reconnectAttempts = 0
-    const maxReconnectAttempts = 5
-    const reconnectInterval = 3000 // 3 seconds
-
-    const attemptReconnect = () => {
-      if (reconnectAttempts < maxReconnectAttempts) {
-        reconnectAttempts++
-        console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
-
-        setTimeout(() => {
-          console.log("Reconnecting to WebSocket...")
-          socketRef.current = new WebSocket(wsUrl)
-
-          // Re-attach event handlers
-          socketRef.current.onopen = () => {
-            console.log("WebSocket reconnected")
-            reconnectAttempts = 0
-
-            // Re-join the room
-            sendToSignalingServer({
-              type: "join",
-              roomId,
-              userId: user?.id || "anonymous",
-              userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
-              userAvatar: user?.image || "/placeholder.svg",
-            })
-          }
-
-          socketRef.current.onclose = handleSocketClose
-          socketRef.current.onerror = handleSocketError
-          socketRef.current.onmessage = handleSocketMessage
-        }, reconnectInterval)
-      } else {
-        console.error("Max reconnection attempts reached")
-        toast.error("Could not connect to the meeting server. Please try again later.")
-      }
-    }
-
-    const handleSocketClose = (event) => {
-      console.log("WebSocket connection closed", event)
-
-      if (!event.wasClean) {
-        attemptReconnect()
-      }
-    }
-
-    const handleSocketError = (error) => {
-      console.error("WebSocket error:", error)
-      toast.error("Connection error. Please try again.")
-    }
-
-    const handleSocketMessage = (event) => {
-      const message = JSON.parse(event.data)
-      console.log("WebSocket message received:", message)
-      handleSignalingMessage(message)
-    }
-
-    socketRef.current.onopen = () => {
-      console.log("WebSocket connection established")
-      // Join the room
-      sendToSignalingServer({
-        type: "join",
-        roomId,
-        userId: user?.id || "anonymous",
-        userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
-        userAvatar: user?.image || "/placeholder.svg",
-      })
-    }
-
-    socketRef.current.onclose = handleSocketClose
-    socketRef.current.onerror = handleSocketError
-    socketRef.current.onmessage = handleSocketMessage
-
-    return () => {
-      // Clean up WebSocket connection
-      if (socketRef.current) {
-        socketRef.current.close()
-      }
-    }
-  }, [roomId, user])
-
-  // Initialize local media stream
-  useEffect(() => {
-    const initLocalStream = async () => {
+    const initializeConference = async () => {
       try {
+        // Get local media stream
         const stream = await navigator.mediaDevices.getUserMedia({
           video: isCameraOn,
           audio: isMicOn,
         })
 
+        localStreamRef.current = stream
+
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream
         }
 
-        setLocalStream(stream)
-        localStreamRef.current = stream
-
         // Add current user to participants
-        const currentUser = {
-          id: user?.id || "current-user",
-          name: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "You",
-          isHost: true,
-          isMicOn,
-          isCameraOn,
-          avatar: user?.image || "/placeholder.svg",
-          isLocal: true,
+        setParticipants([
+          {
+            id: user?.id || "current-user",
+            name: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "You",
+            avatar: user?.image || "/ai-avatar.png",
+            isLocal: true,
+            isMicOn,
+            isCameraOn,
+          },
+        ])
+
+        // Connect to signaling server
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+        const wsHost = process.env.NEXT_PUBLIC_API_URL || window.location.host
+        const wsUrl = `${wsProtocol}//${wsHost}/ws/video-conference/${roomId}/`
+
+        socketRef.current = new WebSocket(wsUrl)
+
+        socketRef.current.onopen = () => {
+          console.log("WebSocket connection established")
+          // Join the room
+          sendToSignalingServer({
+            type: "join",
+            userId: user?.id || "anonymous",
+            userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
+            userAvatar: user?.image || "/ai-avatar.png",
+          })
         }
 
-        setParticipants((prev) => {
-          // Check if user already exists
-          if (prev.some((p) => p.id === currentUser.id)) {
-            return prev.map((p) => (p.id === currentUser.id ? { ...p, isMicOn, isCameraOn } : p))
-          }
-          return [currentUser, ...prev]
-        })
+        socketRef.current.onmessage = (event) => {
+          const message = JSON.parse(event.data)
+          handleSignalingMessage(message)
+        }
 
-        // If we already have peer connections, update the tracks
-        Object.values(peerConnectionsRef.current).forEach((pc) => {
-          replaceTracksInPeerConnection(pc, stream)
-        })
-      } catch (err) {
-        console.error("Error accessing media devices:", err)
-        toast.error("Could not access camera or microphone")
-        setIsCameraOn(false)
-        setIsMicOn(false)
+        socketRef.current.onerror = (error) => {
+          console.error("WebSocket error:", error)
+          toast.error("Connection error. Please try again.")
+        }
+
+        socketRef.current.onclose = () => {
+          console.log("WebSocket connection closed")
+          // Attempt to reconnect after a delay
+          setTimeout(() => {
+            if (document.visibilityState !== "hidden") {
+              initializeConference()
+            }
+          }, 3000)
+        }
+
+        // Join the room via API
+        // await apiClient.post(`/api/video-conference/${roomId}/join/`);
+      } catch (error) {
+        console.error("Error initializing conference:", error)
+        toast.error("Could not access camera or microphone. Please check permissions.")
       }
     }
 
-    initLocalStream()
+    initializeConference()
 
     return () => {
-      // Clean up local stream
+      // Stop all media tracks
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop())
       }
-    }
-  }, [isCameraOn, isMicOn, user])
 
-  // Handle screen sharing
-  const handleScreenShare = async () => {
-    if (!isScreenSharing) {
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true,
-        })
-
-        if (screenShareRef.current) {
-          screenShareRef.current.srcObject = stream
-        }
-
-        setScreenStream(stream)
-        screenStreamRef.current = stream
-        setIsScreenSharing(true)
-
-        // Send screen share stream to all peers
-        Object.values(peerConnectionsRef.current).forEach((pc) => {
-          stream.getTracks().forEach((track) => {
-            pc.addTrack(track, stream)
-          })
-        })
-
-        // Listen for the end of screen sharing
-        stream.getVideoTracks()[0].onended = () => {
-          stopScreenSharing()
-        }
-
-        // Notify others that we're screen sharing
-        sendToSignalingServer({
-          type: "screen-share-started",
-          roomId,
-          userId: user?.id || "anonymous",
-        })
-      } catch (err) {
-        console.error("Error sharing screen:", err)
-        toast.error("Could not share screen")
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop())
       }
-    } else {
-      stopScreenSharing()
-    }
-  }
 
-  const stopScreenSharing = () => {
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((track) => track.stop())
-
-      // Remove screen share tracks from peer connections
+      // Close all peer connections
       Object.values(peerConnectionsRef.current).forEach((pc) => {
-        pc.getSenders().forEach((sender) => {
-          if (screenStreamRef.current.getTracks().includes(sender.track)) {
-            pc.removeTrack(sender)
-          }
-        })
+        if (pc) pc.close()
       })
 
-      screenStreamRef.current = null
-      setScreenStream(null)
-      setIsScreenSharing(false)
-
-      // Notify others that we've stopped screen sharing
-      sendToSignalingServer({
-        type: "screen-share-stopped",
-        roomId,
-        userId: user?.id || "anonymous",
-      })
+      // Close WebSocket connection
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.close()
+      }
     }
-  }
-
-  // Handle sending chat messages
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return
-
-    const newMessage = {
-      id: Date.now(),
-      sender: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "You",
-      senderId: user?.id || "anonymous",
-      content: messageInput,
-      timestamp: new Date(),
-      isLocal: true,
-    }
-
-    setChatMessages((prev) => [...prev, newMessage])
-    setMessageInput("")
-
-    // Send message to signaling server
-    sendToSignalingServer({
-      type: "chat-message",
-      roomId,
-      userId: user?.id || "anonymous",
-      userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
-      message: messageInput,
-      timestamp: new Date().toISOString(),
-    })
-  }
-
-  // Handle copying meeting link
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(meetingLink)
-    toast.success("Meeting link copied to clipboard")
-  }
-
-  // Handle sharing meeting link
-  const handleShareLink = () => {
-    if (navigator.share) {
-      navigator
-        .share({
-          title: "Join my Volt meeting",
-          text: "Click the link to join my video conference",
-          url: meetingLink,
-        })
-        .then(() => toast.success("Meeting link shared"))
-        .catch((error) => console.error("Error sharing:", error))
-    } else {
-      handleCopyLink()
-    }
-  }
-
-  // Handle leaving the meeting
-  const handleLeaveMeeting = () => {
-    // Notify others that we're leaving
-    sendToSignalingServer({
-      type: "leave",
-      roomId,
-      userId: user?.id || "anonymous",
-    })
-
-    // Clean up peer connections
-    Object.values(peerConnectionsRef.current).forEach((pc) => {
-      pc.close()
-    })
-
-    // Clean up media streams
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop())
-    }
-
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((track) => track.stop())
-    }
-
-    // Close WebSocket connection
-    if (socketRef.current) {
-      socketRef.current.close()
-    }
-
-    toast.info("You left the meeting")
-    onClose()
-  }
-
-  // Send message to signaling server
-  const sendToSignalingServer = (message) => {
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify(message))
-      return true
-    } else {
-      console.error("WebSocket is not connected")
-      toast.error("Connection lost. Trying to reconnect...")
-      attemptReconnect()
-      return false
-    }
-  }
+  }, [roomId, user])
 
   // Handle signaling messages
-  const handleSignalingMessage = async (message) => {
-    switch (message.type) {
-      case "user-joined":
-        handleUserJoined(message)
-        break
-      case "user-left":
-        handleUserLeft(message)
-        break
-      case "offer":
-        handleOffer(message)
-        break
-      case "answer":
-        handleAnswer(message)
-        break
-      case "ice-candidate":
-        handleIceCandidate(message)
-        break
-      case "chat-message":
-        handleChatMessage(message)
-        break
-      case "screen-share-started":
-        handleScreenShareStarted(message)
-        break
-      case "screen-share-stopped":
-        handleScreenShareStopped(message)
-        break
-      default:
-        console.log("Unknown message type:", message.type)
-    }
-  }
+  const handleSignalingMessage = useCallback(
+    (message) => {
+      const { type } = message
+
+      switch (type) {
+        case "user-joined":
+          handleUserJoined(message)
+          break
+        case "user-left":
+          handleUserLeft(message)
+          break
+        case "offer":
+          handleOffer(message)
+          break
+        case "answer":
+          handleAnswer(message)
+          break
+        case "ice-candidate":
+          handleIceCandidate(message)
+          break
+        case "chat-message":
+          handleChatMessage(message)
+          break
+        case "screen-share-started":
+          handleScreenShareStarted(message)
+          break
+        case "screen-share-stopped":
+          handleScreenShareStopped(message)
+          break
+        case "media-state-change":
+          handleMediaStateChange(message)
+          break
+        default:
+          console.log("Unknown message type:", type)
+      }
+    },
+    [user],
+  )
 
   // Handle when a new user joins
   const handleUserJoined = async (message) => {
@@ -737,6 +537,53 @@ export function VideoConferenceRoom({ roomId, onClose }) {
     })
   }
 
+  // Handle media state change
+  const handleMediaStateChange = useCallback((message) => {
+    const { userId, isCameraOn, isMicOn } = message
+
+    // Update participant state
+    setParticipants((prev) => prev.map((p) => (p.id === userId ? { ...p, isCameraOn, isMicOn } : p)))
+  }, [])
+
+  // Create a new peer connection
+  const createPeerConnection = (userId) => {
+    const peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        sendToSignalingServer({
+          type: "ice-candidate",
+          userId: user?.id || "anonymous",
+          targetUserId: userId,
+          candidate: event.candidate,
+        })
+      }
+    }
+
+    peerConnection.ontrack = (event) => {
+      // Find the video element for this user
+      const videoElement = document.getElementById(`video-${userId}`)
+      if (videoElement && event.streams && event.streams[0]) {
+        videoElement.srcObject = event.streams[0]
+      }
+    }
+
+    peerConnection.onconnectionstatechange = () => {
+      console.log(`Connection state change: ${peerConnection.connectionState}`)
+      if (
+        peerConnection.connectionState === "failed" ||
+        peerConnection.connectionState === "disconnected" ||
+        peerConnection.connectionState === "closed"
+      ) {
+        // Handle connection failure
+        console.log(`Connection to peer ${userId} failed or closed`)
+      }
+    }
+
+    peerConnectionsRef.current[userId] = peerConnection
+    return peerConnection
+  }
+
   // Toggle camera
   const toggleCamera = () => {
     if (localStreamRef.current) {
@@ -785,328 +632,555 @@ export function VideoConferenceRoom({ roomId, onClose }) {
     }
   }
 
-  // Add reconnection logic
-  const reconnectAttempts = 0
-  const maxReconnectAttempts = 5
+  // Toggle screen sharing
+  const handleScreenShare = async () => {
+    try {
+      if (!isScreenSharing) {
+        // Start screen sharing
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+        })
+
+        screenStreamRef.current = screenStream
+
+        // Replace video track in all peer connections
+        const videoTrack = screenStream.getVideoTracks()[0]
+
+        Object.values(peerConnectionsRef.current).forEach((pc) => {
+          const senders = pc.getSenders()
+          const videoSender = senders.find((sender) => sender.track && sender.track.kind === "video")
+
+          if (videoSender) {
+            videoSender.replaceTrack(videoTrack)
+          }
+        })
+
+        // Update local video
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = screenStream
+        }
+
+        // Listen for the end of screen sharing
+        videoTrack.onended = () => {
+          stopScreenSharing()
+        }
+
+        setIsScreenSharing(true)
+
+        // Notify other participants
+        sendToSignalingServer({
+          type: "screen-share-started",
+          userId: user?.id || "anonymous",
+        })
+      } else {
+        // Stop screen sharing
+        stopScreenSharing()
+      }
+    } catch (error) {
+      console.error("Error toggling screen share:", error)
+      toast.error("Could not share screen. Please try again.")
+    }
+  }
+
+  const stopScreenSharing = () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop())
+
+      // Remove screen share tracks from peer connections
+      Object.values(peerConnectionsRef.current).forEach((pc) => {
+        pc.getSenders().forEach((sender) => {
+          if (screenStreamRef.current.getTracks().includes(sender.track)) {
+            pc.removeTrack(sender)
+          }
+        })
+      })
+
+      screenStreamRef.current = null
+      setScreenStream(null)
+      setIsScreenSharing(false)
+
+      // Notify others that we've stopped screen sharing
+      sendToSignalingServer({
+        type: "screen-share-stopped",
+        roomId,
+        userId: user?.id || "anonymous",
+      })
+    }
+  }
+
+  // Send message to signaling server
+  const sendToSignalingServer = (message) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify(message))
+    } else {
+      console.error("WebSocket is not connected")
+      toast.error("Connection lost. Trying to reconnect...")
+
+      // Try to reconnect
+      if (socketRef.current && socketRef.current.readyState === WebSocket.CLOSED) {
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+        const wsHost = process.env.NEXT_PUBLIC_API_URL || window.location.host
+        const wsUrl = `${wsProtocol}//${wsHost}/ws/video-conference/${roomId}/`
+
+        socketRef.current = new WebSocket(wsUrl)
+
+        socketRef.current.onopen = () => {
+          console.log("WebSocket reconnected")
+          socketRef.current.send(JSON.stringify(message))
+
+          // Rejoin the room
+          sendToSignalingServer({
+            type: "join",
+            userId: user?.id || "anonymous",
+            userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
+            userAvatar: user?.image || "/ai-avatar.png",
+          })
+        }
+
+        // Set up other event handlers
+        socketRef.current.onmessage = (event) => {
+          const msg = JSON.parse(event.data)
+          handleSignalingMessage(msg)
+        }
+
+        socketRef.current.onerror = (error) => {
+          console.error("WebSocket reconnection error:", error)
+        }
+      }
+    }
+  }
+
+  // Handle sending chat messages
+  const handleSendMessage = () => {
+    if (!messageInput.trim()) return
+
+    const newMessage = {
+      id: Date.now(),
+      sender: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "You",
+      senderId: user?.id || "anonymous",
+      content: messageInput,
+      timestamp: new Date(),
+      isLocal: true,
+    }
+
+    setChatMessages((prev) => [...prev, newMessage])
+    setMessageInput("")
+
+    // Send message to signaling server
+    sendToSignalingServer({
+      type: "chat-message",
+      roomId,
+      userId: user?.id || "anonymous",
+      userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
+      message: messageInput,
+      timestamp: new Date().toISOString(),
+    })
+  }
+
+  // Send chat message
+  const sendChatMessage = () => {
+    if (messageInput.trim() === "") return
+
+    const message = {
+      type: "chat-message",
+      userId: user?.id || "anonymous",
+      userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
+      message: messageInput,
+      timestamp: new Date().toISOString(),
+    }
+
+    sendToSignalingServer(message)
+
+    // Add to local chat
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        userId: user?.id || "anonymous",
+        userName: user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Anonymous",
+        text: messageInput,
+        timestamp: new Date().toISOString(),
+        isLocal: true,
+      },
+    ])
+
+    setMessageInput("")
+
+    // Scroll to bottom of chat
+    if (chatContainerRef.current) {
+      setTimeout(() => {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+      }, 100)
+    }
+  }
+
+  // Handle copying meeting link
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(meetingLink)
+    toast.success("Meeting link copied to clipboard")
+  }
+
+  // Copy meeting link
+  const copyMeetingLink = () => {
+    const link = `${window.location.origin}/dashboard/video-conference?roomId=${roomId}`
+    navigator.clipboard.writeText(link)
+    setLinkCopied(true)
+    toast.success("Meeting link copied to clipboard")
+
+    setTimeout(() => {
+      setLinkCopied(false)
+    }, 3000)
+  }
+
+  // Toggle fullscreen
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      videoContainerRef.current.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`)
+      })
+      setIsFullScreen(true)
+    } else {
+      document.exitFullscreen()
+      setIsFullScreen(false)
+    }
+  }
+
+  // Toggle participant audio
+  const toggleParticipantAudio = (participantId) => {
+    setIsMuted((prev) => ({
+      ...prev,
+      [participantId]: !prev[participantId],
+    }))
+
+    // Find the audio element for this participant
+    const audioElement = document.getElementById(`audio-${participantId}`)
+    if (audioElement) {
+      audioElement.muted = !isMuted[participantId]
+    }
+  }
+
+  // Handle sharing meeting link
+  const handleShareLink = () => {
+    if (navigator.share) {
+      navigator
+        .share({
+          title: "Join my Volt meeting",
+          text: "Click the link to join my video conference",
+          url: meetingLink,
+        })
+        .then(() => toast.success("Meeting link shared"))
+        .catch((error) => console.error("Error sharing:", error))
+    } else {
+      handleCopyLink()
+    }
+  }
+
+  // Handle leaving the meeting
+  const handleLeaveMeeting = () => {
+    // Notify others that we're leaving
+    sendToSignalingServer({
+      type: "leave",
+      roomId,
+      userId: user?.id || "anonymous",
+    })
+
+    // Clean up peer connections
+    Object.values(peerConnectionsRef.current).forEach((pc) => {
+      pc.close()
+    })
+
+    // Clean up media streams
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop())
+    }
+
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop())
+    }
+
+    // Close WebSocket connection
+    if (socketRef.current) {
+      socketRef.current.close()
+    }
+
+    toast.info("You left the meeting")
+    onClose()
+  }
+
+  // Handle leave meeting
+  const handleLeaveMeeting2 = async () => {
+    try {
+      // Notify other participants
+      sendToSignalingServer({
+        type: "leave",
+        userId: user?.id || "anonymous",
+      })
+
+      // Leave the room via API
+      // await apiClient.post(`/api/video-conference/${roomId}/leave/`);
+
+      // Stop all media tracks
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop())
+      }
+
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop())
+      }
+
+      // Close all peer connections
+      Object.values(peerConnectionsRef.current).forEach((pc) => {
+        if (pc) pc.close()
+      })
+
+      // Close WebSocket connection
+      if (socketRef.current) {
+        socketRef.current.close()
+      }
+
+      // Navigate back to dashboard
+      router.push("/dashboard")
+    } catch (error) {
+      console.error("Error leaving meeting:", error)
+      router.push("/dashboard")
+    }
+  }
 
   return (
-    <div className="relative h-[calc(100vh-10rem)]">
-      {/* Connection status message */}
-      {reconnectAttempts > 0 && (
-        <div className="absolute top-0 left-0 right-0 bg-yellow-500 text-white p-2 text-center z-50">
-          Connection issues detected. Attempting to reconnect... ({reconnectAttempts}/{maxReconnectAttempts})
-        </div>
-      )}
-      {/* Meeting info */}
-      <div className="flex justify-between items-center mb-4 p-3 bg-muted/30 rounded-lg">
-        <div>
-          <h3 className="font-medium">Meeting: {roomId}</h3>
-          <div className="flex items-center text-xs text-muted-foreground mt-1">
-            <LinkIcon className="h-3 w-3 mr-1 flex-shrink-0" />
-            <span className="truncate">{meetingLink}</span>
-          </div>
-        </div>
-        <div className="flex gap-2">
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center p-4 border-b">
+        <div className="flex items-center space-x-2">
+          <h2 className="text-xl font-semibold">Meeting: {roomId}</h2>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={handleCopyLink}>
-                  <Copy className="h-4 w-4" />
+                <Button variant="outline" size="icon" onClick={copyMeetingLink}>
+                  {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Copy meeting link</TooltipContent>
+              <TooltipContent>
+                <p>Copy meeting link</p>
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+        </div>
+        <div className="flex items-center space-x-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={handleShareLink}>
-                  <Share2 className="h-4 w-4" />
+                <Button variant="outline" size="icon" onClick={toggleFullScreen}>
+                  {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Share meeting link</TooltipContent>
+              <TooltipContent>
+                <p>{isFullScreen ? "Exit full screen" : "Enter full screen"}</p>
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          <Button variant="destructive" size="sm" onClick={handleLeaveMeeting2}>
+            <Phone className="h-4 w-4 mr-2" /> Leave
+          </Button>
         </div>
       </div>
 
-      {/* Video grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4 h-[calc(100%-12rem)]">
-        {/* Local user video */}
-        <div className="relative rounded-lg overflow-hidden bg-muted h-full min-h-[200px]">
-          {isCameraOn ? (
-            <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={user?.image || "/placeholder.svg"} />
-                <AvatarFallback>{user?.firstName?.charAt(0) || "U"}</AvatarFallback>
-              </Avatar>
-            </div>
-          )}
-          <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center">
-            <div className="bg-black/50 text-white px-2 py-1 rounded text-sm">
-              {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "You"} (You)
-            </div>
-            <div className="flex gap-1">
-              {!isMicOn && (
-                <div className="bg-red-500/80 p-1 rounded-full">
-                  <MicOff className="h-3 w-3 text-white" />
-                </div>
-              )}
-              {!isCameraOn && (
-                <div className="bg-red-500/80 p-1 rounded-full">
-                  <VideoOff className="h-3 w-3 text-white" />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 p-4" ref={videoContainerRef}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 h-full">
+            {participants.map((participant) => (
+              <div
+                key={participant.id}
+                className={`relative rounded-lg overflow-hidden bg-muted ${
+                  participant.isScreenSharing ? "col-span-2 row-span-2" : ""
+                }`}
+              >
+                {participant.isLocal ? (
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover ${
+                      !participant.isCameraOn && !isScreenSharing ? "hidden" : ""
+                    }`}
+                  />
+                ) : (
+                  <video
+                    id={`video-${participant.id}`}
+                    autoPlay
+                    playsInline
+                    className={`w-full h-full object-cover ${!participant.isCameraOn ? "hidden" : ""}`}
+                  />
+                )}
 
-        {/* Remote participants */}
-        {participants
-          .filter((p) => !p.isLocal)
-          .map((participant) => (
-            <div key={participant.id} className="relative rounded-lg overflow-hidden bg-muted h-full min-h-[200px]">
-              {remoteStreams[participant.id] ? (
-                <video
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                  srcObject={remoteStreams[participant.id]}
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={participant.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                </div>
-              )}
-              <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center">
-                <div className="bg-black/50 text-white px-2 py-1 rounded text-sm">{participant.name}</div>
-                <div className="flex gap-1">
-                  {!participant.isMicOn && (
-                    <div className="bg-red-500/80 p-1 rounded-full">
-                      <MicOff className="h-3 w-3 text-white" />
-                    </div>
-                  )}
-                  {!participant.isCameraOn && (
-                    <div className="bg-red-500/80 p-1 rounded-full">
-                      <VideoOff className="h-3 w-3 text-white" />
-                    </div>
+                {!participant.isCameraOn && !participant.isScreenSharing && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Avatar className="h-24 w-24">
+                      <img src={participant.avatar || "/placeholder.svg"} alt={participant.name} />
+                    </Avatar>
+                  </div>
+                )}
+
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-2 flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <span>
+                      {participant.name} {participant.isLocal ? "(You)" : ""}
+                    </span>
+                    {!participant.isMicOn && <MicOff className="h-4 w-4 text-red-500" />}
+                  </div>
+
+                  {!participant.isLocal && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => toggleParticipantAudio(participant.id)}
+                    >
+                      {isMuted[participant.id] ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </Button>
                   )}
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        <div className="w-80 border-l">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="video">
+                <Users className="h-4 w-4 mr-2" /> Participants ({participants.length})
+              </TabsTrigger>
+              <TabsTrigger value="chat">
+                <MessageSquare className="h-4 w-4 mr-2" /> Chat
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="video" className="flex-1 overflow-hidden flex flex-col">
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {participants.map((participant) => (
+                    <div key={participant.id} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Avatar className="h-8 w-8">
+                          <img src={participant.avatar || "/placeholder.svg"} alt={participant.name} />
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{participant.name}</p>
+                          <p className="text-xs text-muted-foreground">{participant.isLocal ? "You" : "Participant"}</p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-1">
+                        {!participant.isMicOn && <MicOff className="h-4 w-4 text-red-500" />}
+                        {!participant.isCameraOn && <VideoOff className="h-4 w-4 text-red-500" />}
+                        {participant.isScreenSharing && <Share className="h-4 w-4 text-green-500" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="chat" className="flex-1 overflow-hidden flex flex-col">
+              <ScrollArea className="flex-1" ref={chatContainerRef}>
+                <div className="p-4 space-y-4">
+                  {chatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.userId === user?.id || "anonymous" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-lg p-3 ${
+                          msg.userId === user?.id || "anonymous" ? "bg-primary text-primary-foreground" : "bg-muted"
+                        }`}
+                      >
+                        {msg.userId !== user?.id ||
+                          ("anonymous" && <p className="text-xs font-medium mb-1">{msg.userName}</p>)}
+                        <p>{msg.text}</p>
+                        <p className="text-xs opacity-70 mt-1 text-right">
+                          {new Date(msg.timestamp).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              <div className="p-4 border-t">
+                <div className="flex space-x-2">
+                  <Input
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    placeholder="Type a message..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        sendChatMessage()
+                      }
+                    }}
+                  />
+                  <Button onClick={sendChatMessage}>Send</Button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
-      {/* Screen sharing overlay */}
-      {isScreenSharing && (
-        <div className="absolute inset-0 bg-black/80 z-10 flex flex-col">
-          <div className="flex-1 p-4">
-            <video ref={screenShareRef} autoPlay className="w-full h-full object-contain" />
-          </div>
-          <div className="p-4 flex justify-center">
-            <Button variant="destructive" onClick={stopScreenSharing}>
-              <StopCircle className="h-4 w-4 mr-2" />
-              Stop sharing
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Participant screen sharing */}
-      {participants.some((p) => p.isScreenSharing && !p.isLocal) && (
-        <div className="absolute inset-0 bg-black/80 z-10 flex flex-col">
-          <div className="flex-1 p-4">
-            <div className="w-full h-full flex items-center justify-center text-white">
-              {participants.find((p) => p.isScreenSharing && !p.isLocal)?.name} is sharing their screen
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Video controls */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center p-4 gap-2">
+      <div className="flex justify-center items-center space-x-4 p-4 border-t">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={isMicOn ? "outline" : "secondary"}
-                size="icon"
-                onClick={toggleMicrophone}
-                className="rounded-full h-12 w-12 bg-background"
-              >
+              <Button variant={isMicOn ? "outline" : "destructive"} size="icon" onClick={toggleMicrophone}>
                 {isMicOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{isMicOn ? "Turn off microphone" : "Turn on microphone"}</TooltipContent>
+            <TooltipContent>
+              <p>{isMicOn ? "Turn off microphone" : "Turn on microphone"}</p>
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={isCameraOn ? "outline" : "secondary"}
-                size="icon"
-                onClick={toggleCamera}
-                className="rounded-full h-12 w-12 bg-background"
-              >
+              <Button variant={isCameraOn ? "outline" : "destructive"} size="icon" onClick={toggleCamera}>
                 {isCameraOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{isCameraOn ? "Turn off camera" : "Turn on camera"}</TooltipContent>
+            <TooltipContent>
+              <p>{isCameraOn ? "Turn off camera" : "Turn on camera"}</p>
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={isScreenSharing ? "secondary" : "outline"}
-                size="icon"
-                onClick={handleScreenShare}
-                className="rounded-full h-12 w-12 bg-background"
-              >
-                <ScreenShare className="h-5 w-5" />
+              <Button variant={isScreenSharing ? "destructive" : "outline"} size="icon" onClick={handleScreenShare}>
+                {isScreenSharing ? <StopCircle className="h-5 w-5" /> : <Share className="h-5 w-5" />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{isScreenSharing ? "Stop sharing" : "Share screen"}</TooltipContent>
+            <TooltipContent>
+              <p>{isScreenSharing ? "Stop sharing screen" : "Share screen"}</p>
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={isChatOpen ? "secondary" : "outline"}
-                size="icon"
-                onClick={() => {
-                  setIsChatOpen(!isChatOpen)
-                  if (isParticipantsOpen) setIsParticipantsOpen(false)
-                }}
-                className="rounded-full h-12 w-12 bg-background"
-              >
-                <MessageSquare className="h-5 w-5" />
+              <Button variant="destructive" size="icon" onClick={handleLeaveMeeting2}>
+                <Phone className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{isChatOpen ? "Close chat" : "Open chat"}</TooltipContent>
+            <TooltipContent>
+              <p>Leave meeting</p>
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={isParticipantsOpen ? "secondary" : "outline"}
-                size="icon"
-                onClick={() => {
-                  setIsParticipantsOpen(!isParticipantsOpen)
-                  if (isChatOpen) setIsChatOpen(false)
-                }}
-                className="rounded-full h-12 w-12 bg-background"
-              >
-                <Users className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{isParticipantsOpen ? "Close participants" : "Show participants"}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="destructive" size="icon" onClick={handleLeaveMeeting} className="rounded-full h-12 w-12">
-                <Phone className="h-5 w-5 rotate-135" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Leave meeting</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Chat sidebar */}
-      <div
-        className={`fixed top-0 right-0 bottom-0 w-80 bg-background border-l shadow-lg transition-transform duration-300 z-20 ${isChatOpen ? "translate-x-0" : "translate-x-full"}`}
-      >
-        <div className="p-3 border-b flex justify-between items-center">
-          <h3 className="font-medium">Chat</h3>
-          <Button variant="ghost" size="icon" onClick={() => setIsChatOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="p-4 h-[calc(100%-8rem)] overflow-y-auto">
-          {chatMessages.length === 0 ? (
-            <div className="text-center text-muted-foreground text-sm py-4">
-              No messages yet. Start the conversation!
-            </div>
-          ) : (
-            chatMessages.map((message) => (
-              <div key={message.id} className={`mb-4 ${message.isLocal ? "text-right" : "text-left"}`}>
-                <div className="flex items-center mb-1 gap-1 text-sm">
-                  <span className="font-medium">{message.sender}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-                <div
-                  className={`inline-block rounded-lg px-3 py-2 text-sm ${message.isLocal ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-                >
-                  {message.content}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 p-3 border-t bg-background">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Type a message..."
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-            />
-            <Button onClick={handleSendMessage} disabled={!messageInput.trim()}>
-              Send
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Participants sidebar */}
-      <div
-        className={`fixed top-0 right-0 bottom-0 w-80 bg-background border-l shadow-lg transition-transform duration-300 z-20 ${isParticipantsOpen ? "translate-x-0" : "translate-x-full"}`}
-      >
-        <div className="p-3 border-b flex justify-between items-center">
-          <h3 className="font-medium">Participants ({participants.length})</h3>
-          <Button variant="ghost" size="icon" onClick={() => setIsParticipantsOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="p-4 overflow-y-auto">
-          {participants.map((participant) => (
-            <div key={participant.id} className="flex items-center gap-3 py-2 border-b last:border-0">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={participant.avatar || "/placeholder.svg"} />
-                <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center">
-                  <span className="font-medium text-sm">{participant.name}</span>
-                  {participant.isLocal && <span className="text-xs text-muted-foreground ml-1">(You)</span>}
-                </div>
-              </div>
-              <div className="flex gap-1">
-                {!participant.isMicOn && <MicOff className="h-4 w-4 text-muted-foreground" />}
-                {!participant.isCameraOn && <VideoOff className="h-4 w-4 text-muted-foreground" />}
-                {participant.isScreenSharing && <ScreenShare className="h-4 w-4 text-primary" />}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )

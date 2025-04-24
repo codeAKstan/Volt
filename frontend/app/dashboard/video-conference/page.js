@@ -34,13 +34,6 @@ export default function VideoConferencePage() {
 
   const handleJoinMeeting = () => {
     if (!roomId.trim()) return
-
-    // Validate room ID format
-    if (!roomId.startsWith("volt-") && !roomId.match(/^volt-[a-z0-9]{8}$/)) {
-      toast.error("Invalid meeting code. Please enter a valid code.")
-      return
-    }
-
     toast.success(`Joining meeting: ${roomId}`)
     setInMeeting(true)
   }
@@ -48,19 +41,8 @@ export default function VideoConferencePage() {
   const handleCreateMeeting = async () => {
     setCreatingMeeting(true)
     try {
-      // Generate a random meeting ID with consistent format
-      const randomId = Math.random().toString(36).substring(2, 10).padEnd(8, "0").substring(0, 8)
-      const newMeetingId = `volt-${randomId}`
-
-      // In a real app, we would create the room on the server here
-      // const response = await fetch('/api/video-conference/create', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ name: 'New Meeting' })
-      // });
-      // const data = await response.json();
-      // const newMeetingId = data.room_id;
-
+      // Generate a random meeting ID
+      const newMeetingId = `volt-${Math.random().toString(36).substring(2, 8)}`
       setRoomId(newMeetingId)
       toast.success(`Created new meeting: ${newMeetingId}`)
       setInMeeting(true)
@@ -135,15 +117,6 @@ export default function VideoConferencePage() {
     setRoomId("")
     // Remove the join parameter from the URL
     router.push("/dashboard/video-conference")
-  }
-
-  const handleRetryConnection = () => {
-    toast.info("Retrying connection...")
-    // Force a refresh of the component
-    setInMeeting(false)
-    setTimeout(() => {
-      setInMeeting(true)
-    }, 1000)
   }
 
   return (
@@ -326,14 +299,7 @@ export default function VideoConferencePage() {
           </div>
         </>
       ) : (
-        <VideoConferenceRoom
-          roomId={roomId}
-          onClose={handleLeaveMeeting}
-          onError={() => {
-            toast.error("Failed to connect to the meeting")
-            setInMeeting(false)
-          }}
-        />
+        <VideoConferenceRoom roomId={roomId} onClose={handleLeaveMeeting} />
       )}
     </div>
   )
