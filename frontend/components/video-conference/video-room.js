@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 import { useTheme } from "next-themes"
 import {
   Video,
@@ -503,13 +503,7 @@ export function VideoConferenceRoom({ roomId, onClose }) {
 
     // Show a toast notification if chat is closed
     if (!isChatOpen) {
-      toast.info(`New message from ${userName}`, {
-        description: content.length > 30 ? content.substring(0, 30) + "..." : content,
-        action: {
-          label: "View",
-          onClick: () => setIsChatOpen(true),
-        },
-      })
+      toast.info(`New message from ${userName}`)
     }
   }
 
